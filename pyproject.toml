@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shogi-ai"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "python-shogi",
+    "numpy",
+]
+
+[project.optional-dependencies]
+full = [
+    "onnxruntime",
+    "matplotlib",
+    "fastapi",
+    "uvicorn",
+    "websockets",
+]
+train = [
+    "torch",        # M5 Mac では MPS バックエンドが自動使用される
+]
+commentary = [
+    "anthropic",
+]
+dev = [
+    "pytest",
+    "mypy",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true

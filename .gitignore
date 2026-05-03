@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+*.egg
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Models & data（大容量バイナリ）
+models/
+data/
+*.bin
+*.onnx
+*.pt
+*.pth
+
+# 定跡ファイル（大容量）
+book/*.sfen
+book/*.db
+!book/.gitkeep
+
+# テスト・型チェックキャッシュ
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
