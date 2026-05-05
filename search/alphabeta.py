@@ -124,7 +124,7 @@ class AlphaBetaSearcher(Searcher):
                     continue
                 new_board = board.apply_move(move)
                 child_pv: list[Move] = []
-                score = -self._alphabeta(new_board, depth - 1, -_INF, _INF, child_pv)
+                score = -self._alphabeta(new_board, depth - 1, -_INF, _INF, child_pv, ply=1)
                 if score > best_score:
                     best_score = score
                     best_move = move
@@ -158,6 +158,7 @@ class AlphaBetaSearcher(Searcher):
         beta: int,
         pv: list[Move],
         is_null_move: bool = False,
+        ply: int = 0,
     ) -> int:
         assert self._move_gen is not None
         assert self._evaluator is not None
@@ -165,10 +166,11 @@ class AlphaBetaSearcher(Searcher):
         self._nodes += 1
 
         if board.is_game_over():
-            return -(_MATE_SCORE - depth)
+            # ply が大きい（遠い詰み）ほどスコアが低くなり、最短詰みを優先する
+            return -(_MATE_SCORE - ply)
 
         if depth == 0:
-            return self._quiescence(board, alpha, beta, _QSEARCH_MAX_DEPTH)
+            return self._quiescence(board, alpha, beta, _QSEARCH_MAX_DEPTH, ply)
 
         if self._is_time_up() or self._stop:
             return self._evaluator.evaluate(board)
@@ -191,14 +193,14 @@ class AlphaBetaSearcher(Searcher):
         if not is_null_move and depth >= _NULL_MOVE_REDUCTION and not board.is_check():
             null_board = board.null_move_board()
             null_score = -self._alphabeta(
-                null_board, depth - _NULL_MOVE_REDUCTION, -beta, -beta + 1, [], True
+                null_board, depth - _NULL_MOVE_REDUCTION, -beta, -beta + 1, [], True, ply + 1
             )
             if null_score >= beta:
                 return beta
 
         moves = self._move_gen.generate_moves(board, self._rules)
         if not moves:
-            return -(_MATE_SCORE - depth)
+            return -(_MATE_SCORE - ply)
 
         moves = self._order_moves(board, moves, depth, tt_best_move)
 
@@ -208,7 +210,7 @@ class AlphaBetaSearcher(Searcher):
         for move in moves:
             new_board = board.apply_move(move)
             child_pv: list[Move] = []
-            score = -self._alphabeta(new_board, depth - 1, -beta, -alpha, child_pv)
+            score = -self._alphabeta(new_board, depth - 1, -beta, -alpha, child_pv, ply=ply + 1)
 
             if score > best_score:
                 best_score = score
@@ -230,18 +232,21 @@ class AlphaBetaSearcher(Searcher):
 
     # ----------------------------------------------------------- quiescence
 
-    def _quiescence(self, board: Board, alpha: int, beta: int, qdepth: int) -> int:
+    def _quiescence(self, board: Board, alpha: int, beta: int, qdepth: int, ply: int = 0) -> int:
         assert self._move_gen is not None
         assert self._evaluator is not None
         assert self._rules is not None
         self._nodes += 1
+
+        if board.is_game_over():
+            return -(_MATE_SCORE - ply)
 
         stand_pat = self._evaluator.evaluate(board)
         if stand_pat >= beta:
             return beta
         alpha = max(alpha, stand_pat)
 
-        if board.is_game_over() or qdepth <= 0:
+        if qdepth <= 0:
             return alpha
 
         moves = self._move_gen.generate_moves(board, self._rules)
@@ -250,7 +255,7 @@ class AlphaBetaSearcher(Searcher):
 
         for move in captures:
             new_board = board.apply_move(move)
-            score = -self._quiescence(new_board, -beta, -alpha, qdepth - 1)
+            score = -self._quiescence(new_board, -beta, -alpha, qdepth - 1, ply + 1)
             if score >= beta:
                 return beta
             alpha = max(alpha, score)

@@ -58,6 +58,18 @@ python -m engine --help
 printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m engine
 ```
 
+### CLI 盤面ビューア
+
+GUI なしでも、盤面を見ながら数手ぶん AI に指させられる。
+
+```bash
+python -m engine.visualize --plies 8
+python -m engine.visualize --strategy ranging_rook --plies 8
+python -m engine.visualize --book none --depth 3 --plies 4
+```
+
+`--clear` を付けると、各手ごとに画面をクリアして表示する。
+
 ### ShogiGUI（Windows）から使う
 
 1. エンジンパスに `python` を指定

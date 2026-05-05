@@ -1,8 +1,13 @@
 """探索テスト: 1手詰め・3手詰めの正解手チェック + MultiPV 形式確認"""
+from __future__ import annotations
+
+from core.board import Board
 from core.board import PythonShogiBoard
+from core.move_gen import MoveGenerator
 from core.move_gen import PythonShogiMoveGen
 from core.rules import RuleSet
-from core.types import Move
+from core.types import Color, Move, PieceType, Square
+from eval.base import Evaluator
 from eval.material import MaterialEvaluator
 from search.alphabeta import AlphaBetaSearcher
 
@@ -114,3 +119,104 @@ def test_search_usi_output_valid() -> None:
     for cand in result.candidates:
         usi = cand.move.to_usi()
         assert len(usi) >= 4
+
+
+class _FivePlyMateBoard(Board):
+    """5 ply の強制メイトを持つ最小ゲーム木。
+
+    python-shogi の詰将棋専用探索ではなく、AlphaBetaSearcher が
+    5手先の終端勝ちを読んで初手を選べることを固定するテスト用。
+    """
+
+    _NEXT: dict[tuple[str, str], str] = {
+        ("root", "7g7f"): "after_1",
+        ("root", "2g2f"): "quiet",
+        ("after_1", "9a9b"): "after_2",
+        ("after_2", "7f7e"): "after_3",
+        ("after_3", "9b9a"): "after_4",
+        ("after_4", "G*5a"): "mate",
+        ("quiet", "9a9b"): "quiet_2",
+        ("quiet_2", "2f2e"): "quiet_3",
+        ("quiet_3", "9b9a"): "quiet_4",
+        ("quiet_4", "2e2d"): "drawish",
+    }
+
+    def __init__(self, state: str = "root", ply: int = 0) -> None:
+        self._state = state
+        self._ply = ply
+
+    def apply_move(self, move: Move) -> Board:
+        return _FivePlyMateBoard(self._NEXT[(self._state, move.to_usi())], self._ply + 1)
+
+    def is_check(self) -> bool:
+        # Null Move Pruning を止め、純粋な5手先読みの回帰テストにする。
+        return True
+
+    def is_game_over(self) -> bool:
+        return self._state == "mate"
+
+    @classmethod
+    def from_sfen(cls, sfen: str) -> Board:
+        return cls(sfen)
+
+    def to_sfen(self) -> str:
+        return self._state
+
+    @property
+    def turn(self) -> Color:
+        return Color.BLACK if self._ply % 2 == 0 else Color.WHITE
+
+    def piece_at_sq(self, sq: Square) -> tuple[PieceType, Color] | None:
+        return None
+
+    def null_move_board(self) -> Board:
+        return _FivePlyMateBoard(f"{self._state}:null", self._ply + 1)
+
+
+class _FivePlyMateMoveGen(MoveGenerator):
+    _MOVES: dict[str, list[str]] = {
+        "root": ["2g2f", "7g7f"],
+        "after_1": ["9a9b"],
+        "after_2": ["7f7e"],
+        "after_3": ["9b9a"],
+        "after_4": ["G*5a"],
+        "quiet": ["9a9b"],
+        "quiet_2": ["2f2e"],
+        "quiet_3": ["9b9a"],
+        "quiet_4": ["2e2d"],
+        "drawish": [],
+        "mate": [],
+    }
+
+    def generate_moves(self, board: Board, rules: RuleSet) -> list[Move]:
+        return [Move.from_usi(usi) for usi in self._MOVES[board.to_sfen()]]
+
+
+class _ZeroEvaluator(Evaluator):
+    def evaluate(self, board: Board) -> int:
+        return 0
+
+
+def test_search_finds_forced_5_ply_mate() -> None:
+    """5手先の強制メイトがある枝を選ぶ。"""
+    searcher = AlphaBetaSearcher()
+    result = searcher.search(
+        board=_FivePlyMateBoard(),
+        move_gen=_FivePlyMateMoveGen(),
+        evaluator=_ZeroEvaluator(),
+        rules=RuleSet(),
+        depth=5,
+        time_limit_ms=5000,
+        multi_pv=2,
+    )
+
+    assert result.best_move is not None
+    assert result.best_move.to_usi() == "7g7f"
+    assert result.best_score > 8_000_000
+    assert [move.to_usi() for move in result.candidates[0].pv] == [
+        "7g7f",
+        "9a9b",
+        "7f7e",
+        "9b9a",
+        "G*5a",
+    ]

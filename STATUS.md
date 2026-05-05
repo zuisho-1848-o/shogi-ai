@@ -7,7 +7,7 @@
 
 ## 現在のフェーズ
 
-**Phase 3 完了 / Phase 4 未着手**
+**Phase 4 完了 / Phase 5 未着手**
 
 ---
 
@@ -21,6 +21,21 @@
 - eval/base.py, eval/material.py
 - search/base.py, search/tt.py, search/alphabeta.py
 - tests/test_search.py
+
+### Phase 4: NNUE 評価関数（完了）
+
+- [x] `eval/nnue.py` — HalfKP-lite 特徴量 (2282次元) + 3層 MLP + PST フォールバック
+- [x] `scripts/create_nnue_weights.py` — PST+ファイルボーナスを NN 重みとしてエンコード
+- [x] `models/nnue.npz` — 初期重みファイル (python -m scripts.create_nnue_weights で生成)
+- [x] `benchmark/tsume.py` — 詰将棋ベンチマーク (1/1正解)
+- [x] `benchmark/self_play.py` — 自己対局レーティング計算
+- [x] `tests/test_nnue.py` — 11 テスト全通過
+- [x] `tests/test_benchmark.py` — 7 テスト全通過
+- [x] `search/alphabeta.py` — バグ修正: 詰みスコアを depth (残り深さ) → ply (経過手数) に変更し最短詰みを正しく優先
+
+**テスト**: 53/53 全通過
+
+---
 
 ### Phase 3: 探索強化 + 定跡・戦法（完了）
 
@@ -37,10 +52,12 @@
 - [x] `book/standard.sfen` — 標準定跡ファイル（初期局面 + 主要応手）
 - [x] `engine/engine.py` — 定跡参照 + PST 評価を統合
 - [x] `engine/__main__.py` — `--book`, `--strategy`, デフォルト eval を pst に変更
+- [x] `engine/visualize.py` — CLI 盤面ビューア（盤面表示 + 定跡/探索で数手進行）
 - [x] `tests/test_pst.py` — 5 テスト全通過
 - [x] `tests/test_book.py` — 8 テスト全通過
+- [x] `tests/test_search.py` — 5手先の強制メイトを読む回帰テストを追加
 
-**テスト**: 32/32 全通過
+**テスト**: 53/53 全通過
 
 ---
 
@@ -54,11 +71,10 @@
 
 ---
 
-## Phase 4 以降（未着手）
+## Phase 5 以降（未着手）
 
 | Phase | 内容 | 主なファイル |
 |-------|------|------------|
-| 4 | 既存 NNUE 重みを流用 | `eval/nnue.py`, `benchmark/` |
 | 5 | KPP 自前学習 | `train/kpp_train.py`, `eval/kpp.py` |
 | 6 | MCTS 実装 | `search/mcts.py` |
 | 7 | 分析 + Web UI | `analysis/`, `web/` |
@@ -112,4 +128,21 @@ printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m eng
 
 # 振り飛車戦法指定
 printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m engine --strategy ranging_rook
+
+# CLI 盤面ビューア
+python -m engine.visualize --plies 8
+python -m engine.visualize --strategy ranging_rook --plies 8
+python -m engine.visualize --book none --depth 3 --plies 4
+
+# Phase 4: NNUE 重み生成
+python -m scripts.create_nnue_weights
+
+# NNUE エンジンで対局
+printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m engine --eval nnue
+
+# 詰将棋ベンチマーク
+python -m benchmark.tsume
+
+# 自己対局ベンチマーク (PST vs NNUE, 10局)
+python -m benchmark.self_play --n-games 10 --depth 3
 ```

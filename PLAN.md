@@ -275,6 +275,7 @@ train（model, dataset, train） ← core + eval のみ依存（独立）
 | `book/sfen_book.py` | SFEN 形式の定跡ファイル読み込み（YaneuraOu の定跡ファイルを流用可） |
 | `book/strategy.py` | `Strategy` dataclass + 戦法フィルター（振り飛車・居飛車など） |
 | `engine/engine.py` | 序盤は定跡を参照、定跡を外れたら探索に切り替え |
+| `engine/visualize.py` | CLI 盤面ビューア（GUI なしで定跡・探索の指し手を視覚確認） |
 
 ```python
 # book/strategy.py
@@ -288,7 +289,7 @@ class Strategy:
 定跡ファイルは YaneuraOu 形式（SFEN + スコア）をそのまま読めるよう実装し、
 ファイルを差し替えるだけで戦法を変更できる。
 
-**完了基準**: 5手詰めを安定して解ける + 「振り飛車モード」で定跡通りに序盤を指せる
+**完了基準**: 5手詰めを安定して解ける + 「振り飛車モード」で定跡通りに序盤を指せる + CLI で盤面を見ながら動作確認できる
 
 ---
 

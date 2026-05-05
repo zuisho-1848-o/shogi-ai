@@ -10,6 +10,7 @@ from core.types import Move
 from engine.config import EngineConfig
 from eval.base import Evaluator
 from eval.material import MaterialEvaluator
+from eval.nnue import NNUEEvaluator
 from eval.pst import PSTEvaluator
 from search.alphabeta import AlphaBetaSearcher
 from search.base import SearchResult, Searcher
@@ -20,8 +21,10 @@ def _build_evaluator(config: EngineConfig) -> Evaluator:
         return PSTEvaluator()
     if config.eval == "material":
         return MaterialEvaluator()
-    # 将来: kpp / nnue
-    return MaterialEvaluator()
+    if config.eval == "nnue":
+        return NNUEEvaluator()
+    # 将来: kpp
+    return PSTEvaluator()
 
 
 def _build_searcher(config: EngineConfig) -> Searcher:
