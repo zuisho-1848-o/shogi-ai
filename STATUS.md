@@ -7,7 +7,7 @@
 
 ## 現在のフェーズ
 
-**Phase 4 完了 / Phase 5 未着手**
+**Phase 5 完了 / Phase 6 未着手**
 
 ---
 
@@ -61,6 +61,48 @@
 
 ---
 
+### Phase 5: KPP 自前学習（完了）
+
+- [x] `train/__init__.py` — パッケージ初期化
+- [x] `train/dataset.py` — CSA棋譜パーサー (CSA→USI変換) + KP特徴量エンコーディング (2182次元)
+- [x] `train/kpp_train.py` — Bonanza方式SGD学習スクリプト (sigmoid MSE 損失)
+- [x] `eval/kpp.py` — KPテーブル評価関数 (先手玉・後手玉視点を合算)
+- [x] `scripts/init_kpp_weights.py` — PST初期値からKPテーブル生成
+- [x] `models/kpp.npz` — 初期重みファイル (python -m scripts.init_kpp_weights で生成)
+- [x] `engine/engine.py` — `--eval kpp` オプション対応を追加
+- [x] `tests/test_kpp.py` — 15 テスト全通過
+
+**テスト**: 68/68 全通過
+
+**KP特徴量設計:**
+- 盤上の駒: 2色 × 13種 × 81マス = 2106次元
+- 持ち駒: 2色 × 38カウント = 76次元
+- 合計: 2182次元
+- テーブル shape: float32[81][2182] (先手玉マス × 駒特徴)
+- メモリ: 約712KB
+
+**CSAパーサーメモ:**
+- `shogi.Move.from_csa()` は python-shogi に存在しない → `_csa_move_to_usi()` で手動変換
+- CSA手形式 `XXYYZZ`: from_file(X)rank(X)to_file(Y)rank(Y)piece(Z)
+- rank 1→'a', ..., 9→'i' で USI のランク文字に変換
+- 打ち駒: from=00, USI は `PIECE*to_sq`
+- 成り駒 (TO/NY/NK/NG/UM/RY) → USI末尾に `+` を追加
+- `%TORYO` は最後に指した側が勝ち (`winner = last_mover`)
+
+**動作確認コマンド:**
+```bash
+# PST初期値でKPPテーブルを生成
+python -m scripts.init_kpp_weights
+
+# KPP評価でエンジン起動
+printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m engine --eval kpp
+
+# CSAファイルから学習 (Floodgate棋譜を data/csa/ に配置後)
+python -m train.kpp_train --csa-dir data/csa --output models/kpp.npz --init pst --epochs 5
+```
+
+---
+
 ## python-shogi API メモ（調査済み）
 
 - `board.copy()` は存在しない → `shogi.Board(board.sfen())` でコピー
@@ -85,11 +127,10 @@
 
 ---
 
-## Phase 5 以降（未着手）
+## Phase 6 以降（未着手）
 
 | Phase | 内容 | 主なファイル |
 |-------|------|------------|
-| 5 | KPP 自前学習 | `train/kpp_train.py`, `eval/kpp.py` |
 | 6 | MCTS 実装 | `search/mcts.py` |
 | 7 | 分析 + Web UI | `analysis/`, `web/` |
 

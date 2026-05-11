@@ -9,6 +9,7 @@ from core.move_gen import MoveGenerator, PythonShogiMoveGen
 from core.types import Move
 from engine.config import EngineConfig
 from eval.base import Evaluator
+from eval.kpp import KPPEvaluator
 from eval.material import MaterialEvaluator
 from eval.nnue import NNUEEvaluator
 from eval.pst import PSTEvaluator
@@ -23,7 +24,8 @@ def _build_evaluator(config: EngineConfig) -> Evaluator:
         return MaterialEvaluator()
     if config.eval == "nnue":
         return NNUEEvaluator()
-    # 将来: kpp
+    if config.eval == "kpp":
+        return KPPEvaluator.load_or_fallback()
     return PSTEvaluator()
 
 
