@@ -71,6 +71,20 @@
 
 ---
 
+### Web UI（完了）
+
+- [x] `web/app.py` — FastAPI REST API（新局・着手・AI応手）
+- [x] `web/index.html` — 盤面UI（駒クリック選択・持ち駒打ち・促成ダイアログ・AI自動応答）
+- [x] **バグ修正**: sq 座標計算の誤り修正（python-shogi の sq は行優先 `(rank-1)*9+(9-file)` なのに列優先で扱っていた）
+
+**起動コマンド:**
+```bash
+.venv/bin/uvicorn web.app:app --port 8765 --reload
+# → http://localhost:8765
+```
+
+---
+
 ## Phase 5 以降（未着手）
 
 | Phase | 内容 | 主なファイル |
