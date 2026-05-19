@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>将棋AI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -16,6 +17,7 @@
     flex-direction: column;
     align-items: center;
     padding: 16px;
+    overflow-x: auto;
   }
 
   header {
@@ -28,7 +30,7 @@
 
   .game-area {
     display: flex;
-    gap: 24px;
+    gap: 20px;
     align-items: flex-start;
   }
 
@@ -116,13 +118,6 @@
   .piece.white.promoted { color: #bb1111; transform: rotate(180deg); }
 
   /* ── 持ち駒エリア ── */
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 180px;
-  }
-
   .hand-box {
     background: #16213e;
     border: 1px solid #2a4060;
@@ -170,12 +165,17 @@
     bottom: 1px;
     right: 3px;
     font-weight: bold;
-    transform: none;  /* 白の手番でも回転しないよう上書き */
   }
-  /* 白持ち駒の枚数ラベルは反転を解除 */
   .hand-piece.white-hand .hp-count { transform: rotate(180deg); }
 
-  /* ── コントロール ── */
+  /* ── サイドバー ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 200px;
+  }
+
   .controls {
     display: flex;
     flex-direction: column;
@@ -188,7 +188,7 @@
     border-radius: 8px;
     padding: 12px;
     font-size: 0.9em;
-    min-height: 80px;
+    min-height: 70px;
   }
 
   .status-turn {
@@ -214,7 +214,7 @@
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .btn-new { background: #f0c040; color: #1a1a1a; }
-  .btn-ai { background: #3060c0; color: #fff; }
+  .btn-ai  { background: #3060c0; color: #fff; }
 
   .depth-row {
     display: flex;
@@ -235,6 +235,66 @@
     cursor: pointer;
   }
 
+  /* ── 候補手パネル ── */
+  .candidates-box {
+    background: #16213e;
+    border: 1px solid #2a4060;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .candidates-box .label {
+    font-size: 0.75em;
+    color: #aaa;
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+  }
+  .cand-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 0;
+    border-bottom: 1px solid #1e3050;
+    font-size: 0.78em;
+  }
+  .cand-row:last-child { border-bottom: none; }
+  .cand-rank  { color: #f0c040; width: 13px; text-align: right; flex-shrink: 0; }
+  .cand-move  { font-family: monospace; color: #80c8ff; width: 46px; flex-shrink: 0; }
+  .cand-bar-wrap { flex: 1; height: 6px; background: #0a0a1a; border-radius: 3px; overflow: hidden; }
+  .cand-bar   { height: 100%; border-radius: 3px; transition: width 0.25s; }
+  .cand-score { color: #aaa; width: 44px; text-align: right; flex-shrink: 0; }
+  .cand-empty { color: #555; font-size: 0.8em; font-style: italic; }
+
+  /* ── ゲームオーバーバナー ── */
+  .gameover-banner {
+    display: none;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid #f0c040;
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  .gameover-banner.active { display: block; }
+  .gameover-banner h2 { font-size: 1.4em; color: #f0c040; }
+  .gameover-banner p  { color: #ccc; font-size: 0.85em; margin-top: 4px; }
+
+  /* ── 評価値グラフ ── */
+  .eval-section {
+    margin-top: 14px;
+    background: #16213e;
+    border: 1px solid #2a4060;
+    border-radius: 8px;
+    padding: 12px;
+    width: 100%;
+    max-width: 740px;
+  }
+  .eval-section .s-label {
+    font-size: 0.75em;
+    color: #aaa;
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+  }
+  .chart-wrap { height: 150px; position: relative; }
+
   /* ── 促成ダイアログ ── */
   .modal-overlay {
     display: none;
@@ -246,7 +306,6 @@
     justify-content: center;
   }
   .modal-overlay.active { display: flex; }
-
   .modal {
     background: #16213e;
     border: 2px solid #4080c0;
@@ -256,24 +315,10 @@
   }
   .modal h2 { font-size: 1.2em; margin-bottom: 20px; color: #f0c040; }
   .modal-btns { display: flex; gap: 14px; justify-content: center; }
-  .btn-promote { background: #bb1111; color: #fff; }
-  .btn-no-promote { background: #444; color: #fff; }
+  .btn-promote    { background: #bb1111; color: #fff; }
+  .btn-no-promote { background: #444;    color: #fff; }
 
-  /* ── ゲームオーバーバナー ── */
-  .gameover-banner {
-    display: none;
-    background: linear-gradient(135deg, #1a1a2e, #16213e);
-    border: 2px solid #f0c040;
-    border-radius: 10px;
-    padding: 16px 24px;
-    text-align: center;
-    margin-top: 8px;
-  }
-  .gameover-banner.active { display: block; }
-  .gameover-banner h2 { font-size: 1.5em; color: #f0c040; }
-  .gameover-banner p { color: #ccc; font-size: 0.9em; margin-top: 4px; }
-
-  /* AI思考中 */
+  /* ── AI思考中 ── */
   .thinking-overlay {
     display: none;
     position: fixed;
@@ -287,7 +332,6 @@
     letter-spacing: 0.1em;
   }
   .thinking-overlay.active { display: flex; }
-
   .spinner {
     display: inline-block;
     width: 28px; height: 28px;
@@ -302,13 +346,12 @@
 </head>
 <body>
 
-<header>将棋AI ― Phase 4</header>
+<header>将棋AI ― Phase 7</header>
 
 <div class="game-area">
 
-  <!-- 盤面 -->
+  <!-- 盤面 + 持ち駒 -->
   <div class="board-wrap">
-    <!-- 後手持ち駒（上） -->
     <div class="hand-box" style="width:100%">
       <div class="label">後手（AI）持ち駒</div>
       <div class="hand-pieces" id="white-hand"></div>
@@ -321,7 +364,6 @@
       <div class="rank-labels" id="rank-labels"></div>
     </div>
 
-    <!-- 先手持ち駒（下） -->
     <div class="hand-box" style="width:100%">
       <div class="label">先手（あなた）持ち駒</div>
       <div class="hand-pieces" id="black-hand"></div>
@@ -333,7 +375,7 @@
     <div class="controls">
       <div class="status-box">
         <div class="status-turn" id="status-turn">―</div>
-        <div class="status-info" id="status-info"></div>
+        <div class="status-info"  id="status-info"></div>
       </div>
 
       <div class="depth-row">
@@ -348,15 +390,29 @@
       </div>
 
       <button class="btn btn-new" id="btn-new">▶ 新しい対局</button>
-      <button class="btn btn-ai" id="btn-ai" disabled>AI に指させる</button>
+      <button class="btn btn-ai"  id="btn-ai" disabled>AI に指させる</button>
+    </div>
+
+    <!-- 候補手パネル -->
+    <div class="candidates-box">
+      <div class="label">AI 候補手（MultiPV）</div>
+      <div id="candidates-list"><span class="cand-empty">対局開始後に表示</span></div>
     </div>
 
     <div class="gameover-banner" id="gameover-banner">
       <h2 id="gameover-title"></h2>
-      <p id="gameover-sub"></p>
+      <p  id="gameover-sub"></p>
     </div>
   </div>
 
+</div><!-- .game-area -->
+
+<!-- 評価値グラフ -->
+<div class="eval-section">
+  <div class="s-label">評価値グラフ（先手 ▲ 優勢 = 正 / 後手 ▽ 優勢 = 負）</div>
+  <div class="chart-wrap">
+    <canvas id="eval-chart"></canvas>
+  </div>
 </div>
 
 <!-- 促成ダイアログ -->
@@ -364,7 +420,7 @@
   <div class="modal">
     <h2>成りますか？</h2>
     <div class="modal-btns">
-      <button class="btn btn-promote" id="btn-promote">成る</button>
+      <button class="btn btn-promote"    id="btn-promote">成る</button>
       <button class="btn btn-no-promote" id="btn-no-promote">成らない</button>
     </div>
   </div>
@@ -376,32 +432,31 @@
 </div>
 
 <script>
-// ── 定数 ──────────────────────────────────────────
-const RANK_KANJI = ['一','二','三','四','五','六','七','八','九'];
-const HAND_ORDER = ['rook','bishop','gold','silver','knight','lance','pawn'];
+// ─────────────────────────────────── 定数
+const RANK_KANJI  = ['一','二','三','四','五','六','七','八','九'];
+const HAND_ORDER  = ['rook','bishop','gold','silver','knight','lance','pawn'];
 const PIECE_LETTER = {rook:'R', bishop:'B', gold:'G', silver:'S', knight:'N', lance:'L', pawn:'P'};
-const PIECE_KANJI = {
+const PIECE_KANJI  = {
   pawn:'歩', lance:'香', knight:'桂', silver:'銀', gold:'金',
   bishop:'角', rook:'飛', king:'王',
   prom_pawn:'と', prom_lance:'杏', prom_knight:'圭',
   prom_silver:'全', prom_bishop:'馬', prom_rook:'龍',
 };
 
-// ── 状態 ──────────────────────────────────────────
-let state = null;           // サーバーから取得した最新盤面
-let selectedSq = null;      // 選択中のマス番号 (0-80)
-let selectedHand = null;    // 選択中の持ち駒名 e.g. 'pawn'
-let pendingMove = null;     // 促成確認待ちの {promote, noPromote}
+// ─────────────────────────────────── 状態
+let state       = null;
+let selectedSq   = null;
+let selectedHand = null;
+let pendingMove  = null;
 
-// ── ユーティリティ ─────────────────────────────────
+// ─────────────────────────────────── ユーティリティ
 function sqToUsi(sq) {
-  const file = 9 - (sq % 9);           // 1-9
-  const rank = Math.floor(sq / 9) + 1; // 1-9
+  const file = 9 - (sq % 9);
+  const rank = Math.floor(sq / 9) + 1;
   return `${file}${'abcdefghi'[rank - 1]}`;
 }
 
 function usiCoordToSq(coord) {
-  // coord = "7f" など2文字
   const file = parseInt(coord[0]);
   const rank = 'abcdefghi'.indexOf(coord[1]) + 1;
   return (rank - 1) * 9 + (9 - file);
@@ -409,15 +464,15 @@ function usiCoordToSq(coord) {
 
 function legalDestsForSq(sq, legalMoves) {
   const fromUsi = sqToUsi(sq);
-  const dests = new Map(); // destSq -> {promote, noPromote}
+  const dests = new Map();
   for (const m of legalMoves) {
     if (m.length < 4 || m[2] === '*') continue;
     if (m.slice(0, 2) !== fromUsi) continue;
     const destSq = usiCoordToSq(m.slice(2, 4));
-    const isPromotion = m.endsWith('+');
+    const isPromo = m.endsWith('+');
     if (!dests.has(destSq)) dests.set(destSq, {promote: null, noPromote: null});
-    if (isPromotion) dests.get(destSq).promote = m;
-    else             dests.get(destSq).noPromote = m;
+    if (isPromo) dests.get(destSq).promote = m;
+    else         dests.get(destSq).noPromote = m;
   }
   return dests;
 }
@@ -426,16 +481,13 @@ function legalDestsForDrop(pieceName, legalMoves) {
   const letter = PIECE_LETTER[pieceName];
   const dests = new Set();
   for (const m of legalMoves) {
-    if (m[1] === '*' && m[0] === letter) {
-      dests.add(usiCoordToSq(m.slice(2, 4)));
-    }
+    if (m[1] === '*' && m[0] === letter) dests.add(usiCoordToSq(m.slice(2, 4)));
   }
   return dests;
 }
 
-// ── 盤面初期化 ────────────────────────────────────
+// ─────────────────────────────────── 盤面初期化
 function initBoard() {
-  // ファイルラベル
   const fl = document.getElementById('file-labels');
   fl.innerHTML = '';
   for (let f = 9; f >= 1; f--) {
@@ -444,7 +496,6 @@ function initBoard() {
     fl.appendChild(d);
   }
 
-  // ランクラベル
   const rl = document.getElementById('rank-labels');
   rl.innerHTML = '';
   RANK_KANJI.forEach(k => {
@@ -453,39 +504,32 @@ function initBoard() {
     rl.appendChild(d);
   });
 
-  // マス生成
-  // CSSグリッドは行優先(左→右→次行)。python-shogiのsqは行優先(rank-1)*9+(9-file)
-  // → グリッド位置 i (row=rank-1, col=9-file) と sq はそのまま一致 (sq=i)
   const board = document.getElementById('board');
   board.innerHTML = '';
   for (let i = 0; i < 81; i++) {
-    const sq = i;
     const cell = document.createElement('div');
     cell.className = 'cell';
-    cell.dataset.sq = sq;
-    cell.addEventListener('click', () => onCellClick(sq));
+    cell.dataset.sq = i;
+    cell.addEventListener('click', () => onCellClick(i));
     board.appendChild(cell);
   }
 }
 
-// ── 画面更新 ──────────────────────────────────────
+// ─────────────────────────────────── 画面更新
 function renderBoard() {
   if (!state) return;
 
-  // 既存クラスをリセット
   document.querySelectorAll('.cell').forEach(c => {
     c.className = 'cell';
     c.innerHTML = '';
   });
 
-  // 最終手ハイライト
   if (state.last_move && state.last_move.length >= 4 && state.last_move[1] !== '*') {
     const destSq = usiCoordToSq(state.last_move.slice(2, 4));
     const dc = document.querySelector(`.cell[data-sq="${destSq}"]`);
     if (dc) dc.classList.add('last-move');
   }
 
-  // 駒を配置
   state.pieces.forEach(p => {
     const cell = document.querySelector(`.cell[data-sq="${p.sq}"]`);
     if (!cell) return;
@@ -495,31 +539,25 @@ function renderBoard() {
     cell.appendChild(span);
   });
 
-  // 選択ハイライト
   if (selectedSq !== null) {
     const sel = document.querySelector(`.cell[data-sq="${selectedSq}"]`);
     if (sel) sel.classList.add('selected');
-
-    const dests = legalDestsForSq(selectedSq, state.legal_moves);
-    dests.forEach((_, destSq) => {
+    legalDestsForSq(selectedSq, state.legal_moves).forEach((_, destSq) => {
       const dc = document.querySelector(`.cell[data-sq="${destSq}"]`);
       if (dc) dc.classList.add('legal-dest');
     });
   }
 
   if (selectedHand !== null) {
-    const dropDests = legalDestsForDrop(selectedHand, state.legal_moves);
-    dropDests.forEach(destSq => {
+    legalDestsForDrop(selectedHand, state.legal_moves).forEach(destSq => {
       const dc = document.querySelector(`.cell[data-sq="${destSq}"]`);
       if (dc) dc.classList.add('legal-dest');
     });
   }
 
-  // 持ち駒
   renderHand('black', state.hands.black, false);
   renderHand('white', state.hands.white, true);
 
-  // ステータス
   const turnEl = document.getElementById('status-turn');
   const infoEl = document.getElementById('status-info');
 
@@ -535,7 +573,7 @@ function renderBoard() {
     turnEl.textContent = isBlack ? '▲ 先手（あなた）の番' : '△ 後手（AI）の番';
     turnEl.className = `status-turn ${state.turn}`;
     infoEl.textContent = `${state.move_count} 手目`;
-    document.getElementById('btn-ai').disabled = !isBlack; // 先手番のときだけ有効
+    document.getElementById('btn-ai').disabled = !isBlack;
     document.getElementById('gameover-banner').classList.remove('active');
   }
 }
@@ -553,33 +591,145 @@ function renderHand(color, hand, isWhite) {
       <span class="hp-kanji">${PIECE_KANJI[name]}</span>
       <span class="hp-count">${count > 1 ? count : ''}</span>
     `;
-    if (!isWhite) {
-      // 先手持ち駒だけクリック可能
-      div.addEventListener('click', () => onHandClick(name));
-    }
+    if (!isWhite) div.addEventListener('click', () => onHandClick(name));
     el.appendChild(div);
   });
 }
 
 function showGameOver(winner) {
   const banner = document.getElementById('gameover-banner');
-  const title = document.getElementById('gameover-title');
-  const sub = document.getElementById('gameover-sub');
   banner.classList.add('active');
-  title.textContent = winner === 'black' ? '先手の勝ち 🎉' : '後手（AI）の勝ち';
-  sub.textContent = `${state.move_count} 手で終局`;
+  document.getElementById('gameover-title').textContent =
+    winner === 'black' ? '先手の勝ち 🎉' : '後手（AI）の勝ち';
+  document.getElementById('gameover-sub').textContent =
+    `${state.move_count} 手で終局`;
 }
 
-// ── クリックハンドラ ───────────────────────────────
+// ─────────────────────────────────── 候補手パネル
+function renderCandidates(candidates) {
+  const el = document.getElementById('candidates-list');
+  if (!candidates || candidates.length === 0) {
+    el.innerHTML = '<span class="cand-empty">候補手なし</span>';
+    return;
+  }
+  const absMax = Math.max(1, ...candidates.map(c => Math.abs(c.score)));
+  el.innerHTML = candidates.map(c => {
+    const w = Math.min(100, Math.abs(c.score) / absMax * 100).toFixed(0);
+    const col = c.score >= 0 ? '#3060c0' : '#c03030';
+    const s = (c.score > 0 ? '+' : '') + c.score;
+    return `<div class="cand-row">
+      <span class="cand-rank">${c.rank}</span>
+      <span class="cand-move">${c.move}</span>
+      <div class="cand-bar-wrap"><div class="cand-bar" style="width:${w}%;background:${col}"></div></div>
+      <span class="cand-score">${s}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────── 評価値グラフ (Chart.js)
+let evalChart = null;
+
+function initChart() {
+  const ctx = document.getElementById('eval-chart').getContext('2d');
+  evalChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: '先手優勢',
+          data: [],
+          fill: 'origin',
+          backgroundColor: 'rgba(48,96,192,0.22)',
+          borderColor: 'transparent',
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: '後手優勢',
+          data: [],
+          fill: 'origin',
+          backgroundColor: 'rgba(192,48,48,0.22)',
+          borderColor: 'transparent',
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: '評価値',
+          data: [],
+          borderColor: '#80c8ff',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 150 },
+      plugins: {
+        legend: {
+          labels: { color: '#aaa', font: { size: 10 }, boxWidth: 10, padding: 10 },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: '手数', color: '#aaa', font: { size: 10 } },
+          ticks: { color: '#888', font: { size: 9 } },
+          grid:  { color: '#1e2a3a' },
+        },
+        y: {
+          title: { display: true, text: 'cp', color: '#aaa', font: { size: 10 } },
+          ticks: { color: '#888', font: { size: 9 } },
+          grid:  { color: '#1e2a3a' },
+        },
+      },
+    },
+  });
+}
+
+function updateChart(evalHistory) {
+  if (!evalChart || !evalHistory) return;
+  const labels = evalHistory.map((_, i) => i + 1);
+  evalChart.data.labels = labels;
+  evalChart.data.datasets[0].data = evalHistory.map(v => Math.max(0, v));
+  evalChart.data.datasets[1].data = evalHistory.map(v => Math.min(0, v));
+  evalChart.data.datasets[2].data = evalHistory;
+  evalChart.update();
+}
+
+// ─────────────────────────────────── WebSocket
+let ws = null;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    // WS からの push は盤面は更新せず、グラフと候補手のみ更新（REST と二重にならない）
+    if (data.eval_history !== undefined) updateChart(data.eval_history);
+    if (data.last_candidates !== undefined) renderCandidates(data.last_candidates);
+  };
+  ws.onclose = () => setTimeout(connectWS, 2000);
+  ws.onerror = () => ws.close();
+}
+
+// 25秒ごとに ping を送って接続を維持
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping');
+}, 25000);
+
+// ─────────────────────────────────── クリックハンドラ
 function onCellClick(sq) {
   if (!state || state.is_game_over) return;
-  if (state.turn !== 'black') return; // プレイヤーは先手のみ
+  if (state.turn !== 'black') return;
 
-  // 持ち駒選択中 → 打つ
   if (selectedHand !== null) {
     const letter = PIECE_LETTER[selectedHand];
-    const destUsi = sqToUsi(sq);
-    const move = `${letter}*${destUsi}`;
+    const move = `${letter}*${sqToUsi(sq)}`;
     if (state.legal_moves.includes(move)) {
       clearSelection();
       sendMove(move);
@@ -590,14 +740,12 @@ function onCellClick(sq) {
     return;
   }
 
-  // 既に選択中のマスがある場合
   if (selectedSq !== null) {
     const dests = legalDestsForSq(selectedSq, state.legal_moves);
     if (dests.has(sq)) {
       const info = dests.get(sq);
       clearSelection();
       if (info.promote && info.noPromote) {
-        // 促成確認
         pendingMove = info;
         document.getElementById('modal-overlay').classList.add('active');
       } else {
@@ -605,11 +753,9 @@ function onCellClick(sq) {
       }
       return;
     }
-    // 別のマスを選択し直す
     clearSelection();
   }
 
-  // 自駒を選択
   const piece = state.pieces.find(p => p.sq === sq && p.color === 'black');
   if (piece) {
     selectedSq = sq;
@@ -631,11 +777,11 @@ function onHandClick(name) {
 }
 
 function clearSelection() {
-  selectedSq = null;
+  selectedSq   = null;
   selectedHand = null;
 }
 
-// ── 促成ダイアログ ────────────────────────────────
+// ─────────────────────────────────── 促成ダイアログ
 document.getElementById('btn-promote').addEventListener('click', () => {
   if (!pendingMove) return;
   document.getElementById('modal-overlay').classList.remove('active');
@@ -652,7 +798,7 @@ document.getElementById('btn-no-promote').addEventListener('click', () => {
   sendMove(move);
 });
 
-// ── サーバー通信 ──────────────────────────────────
+// ─────────────────────────────────── サーバー通信
 async function sendMove(usiMove) {
   try {
     const res = await fetch('/api/move', {
@@ -663,10 +809,8 @@ async function sendMove(usiMove) {
     if (!res.ok) throw new Error(await res.text());
     state = await res.json();
     renderBoard();
-    // プレイヤーが指したら自動でAIに指させる
-    if (!state.is_game_over && state.turn === 'white') {
-      requestAiMove();
-    }
+    updateChart(state.eval_history);
+    if (!state.is_game_over && state.turn === 'white') requestAiMove();
   } catch (e) {
     console.error('sendMove error:', e);
     alert('エラー: ' + e.message);
@@ -687,6 +831,8 @@ async function requestAiMove() {
     if (!res.ok) throw new Error(await res.text());
     state = await res.json();
     renderBoard();
+    updateChart(state.eval_history);
+    renderCandidates(state.last_candidates);
   } catch (e) {
     console.error('AI move error:', e);
     alert('AI エラー: ' + e.message);
@@ -697,7 +843,6 @@ async function requestAiMove() {
 
 document.getElementById('btn-ai').addEventListener('click', () => {
   if (!state || state.turn !== 'black') return;
-  // 「AI に指させる」ボタン = 今の先手番を AI に代わりに指させる
   requestAiMove();
 });
 
@@ -709,19 +854,25 @@ document.getElementById('btn-new').addEventListener('click', async () => {
     state = await res.json();
     document.getElementById('gameover-banner').classList.remove('active');
     renderBoard();
+    updateChart([]);
+    renderCandidates([]);
   } catch (e) {
     console.error('new-game error:', e);
   }
 });
 
-// ── 初期化 ────────────────────────────────────────
+// ─────────────────────────────────── 初期化
 (async () => {
   initBoard();
+  initChart();
+  connectWS();
   try {
     const res = await fetch('/api/state');
     state = await res.json();
+    updateChart(state.eval_history || []);
+    renderCandidates(state.last_candidates || []);
   } catch {
-    // サーバー未起動ならページリロード待ち
+    // サーバー未起動なら待機
   }
   renderBoard();
 })();

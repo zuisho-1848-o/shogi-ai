@@ -15,6 +15,7 @@ from eval.nnue import NNUEEvaluator
 from eval.pst import PSTEvaluator
 from search.alphabeta import AlphaBetaSearcher
 from search.base import SearchResult, Searcher
+from search.mcts import MCTSSearcher
 
 
 def _build_evaluator(config: EngineConfig) -> Evaluator:
@@ -30,7 +31,8 @@ def _build_evaluator(config: EngineConfig) -> Evaluator:
 
 
 def _build_searcher(config: EngineConfig) -> Searcher:
-    # 将来: mcts
+    if config.search == "mcts":
+        return MCTSSearcher()
     return AlphaBetaSearcher()
 
 

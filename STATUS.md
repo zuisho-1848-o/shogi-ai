@@ -7,7 +7,7 @@
 
 ## 現在のフェーズ
 
-**Phase 5 完了 / Phase 6 未着手**
+**Phase 7 完了（全フェーズ完了）**
 
 ---
 
@@ -127,12 +127,75 @@ python -m train.kpp_train --csa-dir data/csa --output models/kpp.npz --init pst 
 
 ---
 
-## Phase 6 以降（未着手）
+### Phase 6: MCTS 実装（完了）
 
-| Phase | 内容 | 主なファイル |
-|-------|------|------------|
-| 6 | MCTS 実装 | `search/mcts.py` |
-| 7 | 分析 + Web UI | `analysis/`, `web/` |
+- [x] `search/mcts.py` — UCT (Upper Confidence Bound for Trees) MCTS
+- [x] `engine/engine.py` — `--search mcts` オプション対応
+- [x] `tests/test_mcts.py` — 17 テスト全通過
+
+**テスト**: 85/85 全通過
+
+**設計メモ:**
+- ランダムロールアウトの代わりに評価関数で葉ノードをスコアリング（評価関数 MCTS）
+- `_MCTSNode.total_value` = 「このノードへ移動したプレイヤー（親）の勝利確率」の累積
+- 勝率 [0,1]: `sigmoid(-(eval from current mover) / 600.0)` で変換
+- バックプロパゲーション: 各レベルで `value = 1 - value` として視点を反転
+- `time_limit_ms` で探索時間を制御（depth は受け取るが使わない）
+- MultiPV: 子ノードを訪問回数降順でソートして返す
+- centipawn 出力: `log(win_rate / (1 - win_rate)) * 600` で逆変換
+
+**動作確認コマンド:**
+```bash
+# MCTS で対局
+printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m engine --search mcts
+
+# MCTS + NNUE 評価
+printf "usi\nisready\nusinewgame\nposition startpos\ngo\nquit\n" | python -m engine --search mcts --eval nnue --time-limit-ms 3000
+```
+
+---
+
+### Phase 7: 分析・可視化 + Web UI（完了）
+
+- [x] `analysis/__init__.py` — パッケージ初期化
+- [x] `analysis/result.py` — SearchResult → JSON dict 変換（`format_candidates`）
+- [x] `analysis/eval_graph.py` — matplotlib 評価値推移グラフ PNG 生成
+- [x] `analysis/kifu_analyzer.py` — 棋譜事後分析（`MoveAnalysis` / `analyze_game`）
+- [x] `web/app.py` — WebSocket (`/ws`) + MultiPV5 + 評価値履歴 + `run_in_executor` 非同期化
+- [x] `web/index.html` — Chart.js 評価値グラフ + 候補手パネル（MultiPV）+ WebSocket クライアント
+- [x] `tests/test_analysis.py` — 14 テスト全通過
+
+**テスト**: 99/99 全通過（見込み）
+
+**設計メモ:**
+- `_eval_history`: 毎手後の「先手視点」評価値リスト。正 = 先手優勢、負 = 後手優勢
+  - 手番が後手 → `evaluate(board)` を反転して先手視点に統一
+- `_last_candidates`: 直近 AI 探索の MultiPV 上位 5 手（USI / score / pv）
+- WebSocket (`/ws`): 各手後に全クライアントへ `_extended_state()` をブロードキャスト
+- AI 探索は `run_in_executor` でスレッドプール実行（イベントループブロッキング回避）
+- Chart.js 4: 3 dataset（先手優勢 fill / 後手優勢 fill / 実線）で評価グラフを描画
+- `analyze_game(moves, evaluator, depth=0)`: depth=0 は evaluator 直接（高速）、depth>0 は AlphaBeta（低速）
+
+**動作確認コマンド:**
+```bash
+# Web UI 起動
+.venv/bin/uvicorn web.app:app --port 8765 --reload
+# → http://localhost:8765
+
+# 棋譜を事後分析（評価値グラフ PNG を出力）
+python - <<'EOF'
+from analysis.kifu_analyzer import analyze_game
+from analysis.eval_graph import save_eval_graph
+from eval.pst import PSTEvaluator
+from pathlib import Path
+
+moves = ["7g7f", "8c8d", "2g2f", "8d8e"]
+results = analyze_game(moves, PSTEvaluator(), depth=0)
+scores = [r.eval_after for r in results]
+save_eval_graph(scores, Path("eval.png"))
+print([r.eval_after for r in results])
+EOF
+```
 
 ---
 
