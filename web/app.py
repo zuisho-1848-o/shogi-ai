@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -59,6 +60,9 @@ _move_gen = PythonShogiMoveGen()
 _rules = RuleSet()
 _executor = ThreadPoolExecutor(max_workers=1)
 
+# 解析タスク管理（重複実行防止）
+_analysis_task: asyncio.Task | None = None
+
 
 # ------------------------------------------------------------------ WebSocket
 
@@ -109,7 +113,6 @@ def _black_eval() -> int:
         return -9_000_000 if _board.turn == shogi.BLACK else 9_000_000
     wrapper = PythonShogiBoard(_board)
     score = _evaluator.evaluate(wrapper)
-    # evaluate() は手番側視点 → 後手番なら反転して先手視点に揃える
     if _board.turn == shogi.WHITE:
         score = -score
     return score
@@ -164,6 +167,46 @@ def _extended_state() -> dict:
     return state
 
 
+async def _schedule_analysis(depth: int = 3) -> None:
+    """現在の局面を非同期で解析し、候補手をWebSocket配信する。
+    前回の解析タスクが走っていればキャンセルして新規開始する。
+    """
+    global _analysis_task, _last_candidates
+
+    if _analysis_task and not _analysis_task.done():
+        _analysis_task.cancel()
+
+    async def _run() -> None:
+        global _last_candidates
+        if _board.is_game_over():
+            return
+        board_snap = copy.deepcopy(_board)
+        is_black_turn = board_snap.turn == shogi.BLACK
+        board_wrapper = PythonShogiBoard(board_snap)
+        loop = asyncio.get_running_loop()
+        try:
+            result = await loop.run_in_executor(
+                _executor,
+                lambda: _searcher.search(
+                    board=board_wrapper,
+                    move_gen=_move_gen,
+                    evaluator=_evaluator,
+                    rules=_rules,
+                    depth=depth,
+                    time_limit_ms=8_000,
+                    multi_pv=8,
+                ),
+            )
+        except asyncio.CancelledError:
+            return
+        _last_candidates = format_candidates(
+            result, max_n=8, black_turn=is_black_turn
+        )
+        await _ws_manager.broadcast(_extended_state())
+
+    _analysis_task = asyncio.create_task(_run())
+
+
 # ------------------------------------------------------------------ endpoints
 
 @app.get("/", response_class=HTMLResponse)
@@ -181,6 +224,8 @@ async def new_game() -> dict:
     _last_candidates = []
     state = _extended_state()
     await _ws_manager.broadcast(state)
+    # 初期局面の先手候補手を解析
+    await _schedule_analysis(depth=3)
     return state
 
 
@@ -204,6 +249,8 @@ async def make_move(req: MoveRequest) -> dict:
     _eval_history.append(_black_eval())
     state = _extended_state()
     await _ws_manager.broadcast(state)
+    # 指した後の局面（相手番）の候補手を解析
+    await _schedule_analysis(depth=3)
     return state
 
 
@@ -214,13 +261,19 @@ class AIMoveRequest(BaseModel):
 @app.post("/api/ai-move")
 async def ai_move(req: AIMoveRequest = AIMoveRequest()) -> dict:
     global _board, _move_history, _eval_history, _last_candidates
+
     if _board.is_game_over():
         raise HTTPException(status_code=400, detail="Game is already over")
 
+    # 進行中の解析があればキャンセル（AI探索を優先）
+    global _analysis_task
+    if _analysis_task and not _analysis_task.done():
+        _analysis_task.cancel()
+
+    is_black_turn = _board.turn == shogi.BLACK
     board_wrapper = PythonShogiBoard(_board)
     depth = max(1, min(req.depth, 7))
 
-    # ブロッキング探索をスレッドプールで実行（イベントループを止めない）
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(
         _executor,
@@ -231,11 +284,14 @@ async def ai_move(req: AIMoveRequest = AIMoveRequest()) -> dict:
             rules=_rules,
             depth=depth,
             time_limit_ms=10_000,
-            multi_pv=5,
+            multi_pv=8,
         ),
     )
 
-    _last_candidates = format_candidates(result, max_n=5)
+    # AI探索の候補手（先手視点に正規化）
+    _last_candidates = format_candidates(
+        result, max_n=8, black_turn=is_black_turn
+    )
 
     if result.best_move is None:
         state = _extended_state()
@@ -252,4 +308,7 @@ async def ai_move(req: AIMoveRequest = AIMoveRequest()) -> dict:
     state["ai_move"] = move_usi
     state["ai_score"] = result.best_score
     await _ws_manager.broadcast(state)
+
+    # AI着手後、次の手番（先手）の候補手を解析してWS配信
+    await _schedule_analysis(depth=depth)
     return state

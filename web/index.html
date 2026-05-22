@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>将棋AI</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -68,6 +68,12 @@
     text-align: center;
   }
 
+  .board-container {
+    position: relative;
+    width: 504px;
+    height: 504px;
+  }
+
   .board {
     display: grid;
     grid-template-columns: repeat(9, 56px);
@@ -75,11 +81,20 @@
     border: 2px solid #5a3e00;
     background: #d4a74a;
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    position: absolute;
+    top: 0; left: 0;
+  }
+
+  .arrow-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 504px; height: 504px;
+    pointer-events: none;
+    z-index: 10;
   }
 
   .cell {
-    width: 56px;
-    height: 56px;
+    width: 56px; height: 56px;
     border: 1px solid #8b6000;
     display: flex;
     align-items: center;
@@ -88,28 +103,23 @@
     position: relative;
     transition: background 0.1s;
   }
-
   .cell:hover { background: rgba(255,255,255,0.15); }
   .cell.selected { background: rgba(30,120,255,0.35); }
   .cell.legal-dest { background: rgba(50,200,80,0.22); }
   .cell.legal-dest::after {
-    content: '';
-    position: absolute;
+    content: ''; position: absolute;
     width: 16px; height: 16px;
     border-radius: 50%;
     background: rgba(30,170,60,0.55);
     pointer-events: none;
   }
-  .cell.last-move { background: rgba(255,210,0,0.28); }
+  .cell.last-move      { background: rgba(255,210,0,0.28); }
+  .cell.last-move-from { background: rgba(80,160,255,0.18); }
   .cell.selected.legal-dest { background: rgba(30,120,255,0.35); }
 
-  /* 駒 */
   .piece {
-    font-size: 1.55em;
-    font-weight: bold;
-    line-height: 1;
-    user-select: none;
-    pointer-events: none;
+    font-size: 1.55em; font-weight: bold; line-height: 1;
+    user-select: none; pointer-events: none;
     text-shadow: 0 1px 1px rgba(0,0,0,0.15);
   }
   .piece.black { color: #1a1a1a; }
@@ -117,201 +127,168 @@
   .piece.promoted { color: #bb1111; }
   .piece.white.promoted { color: #bb1111; transform: rotate(180deg); }
 
-  /* ── 持ち駒エリア ── */
+  /* ── 持ち駒 ── */
   .hand-box {
     background: #16213e;
     border: 1px solid #2a4060;
     border-radius: 8px;
     padding: 12px;
   }
-
   .hand-box .label {
-    font-size: 0.8em;
-    color: #aaa;
+    font-size: 0.8em; color: #aaa;
     margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
-
-  .hand-pieces {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
+  .hand-pieces { display: flex; flex-wrap: wrap; gap: 6px; }
   .hand-piece {
-    background: #d4a74a;
-    border: 2px solid #8b6000;
-    border-radius: 4px;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
+    background: #d4a74a; border: 2px solid #8b6000;
+    border-radius: 4px; width: 44px; height: 44px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
     transition: background 0.1s, border-color 0.1s;
   }
   .hand-piece:hover { background: #e8bc60; }
   .hand-piece.selected { border-color: #2060ff; background: #c8d4f0; }
   .hand-piece.white-hand { transform: rotate(180deg); }
   .hand-piece .hp-kanji { font-size: 1.3em; font-weight: bold; color: #1a1a1a; }
-  .hand-piece .hp-kanji.promoted { color: #bb1111; }
   .hand-piece .hp-count {
-    font-size: 0.68em;
-    color: #444;
-    position: absolute;
-    bottom: 1px;
-    right: 3px;
-    font-weight: bold;
+    font-size: 0.68em; color: #444;
+    position: absolute; bottom: 1px; right: 3px; font-weight: bold;
   }
   .hand-piece.white-hand .hp-count { transform: rotate(180deg); }
 
   /* ── サイドバー ── */
   .sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 200px;
+    display: flex; flex-direction: column; gap: 12px; width: 200px;
   }
-
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
+  .controls { display: flex; flex-direction: column; gap: 10px; }
   .status-box {
-    background: #16213e;
-    border: 1px solid #2a4060;
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 0.9em;
-    min-height: 70px;
+    background: #16213e; border: 1px solid #2a4060;
+    border-radius: 8px; padding: 12px; font-size: 0.9em; min-height: 70px;
   }
-
-  .status-turn {
-    font-size: 1.1em;
-    font-weight: bold;
-    margin-bottom: 6px;
-  }
+  .status-turn { font-size: 1.1em; font-weight: bold; margin-bottom: 6px; }
   .status-turn.black { color: #80c8ff; }
   .status-turn.white { color: #ff8080; }
   .status-info { color: #999; font-size: 0.85em; }
 
   .btn {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.95em;
-    font-weight: bold;
-    font-family: inherit;
-    transition: opacity 0.15s;
+    padding: 10px 16px; border: none; border-radius: 6px;
+    cursor: pointer; font-size: 0.95em; font-weight: bold;
+    font-family: inherit; transition: opacity 0.15s;
   }
   .btn:hover { opacity: 0.85; }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
   .btn-new { background: #f0c040; color: #1a1a1a; }
   .btn-ai  { background: #3060c0; color: #fff; }
 
   .depth-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85em;
-    color: #aaa;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85em; color: #aaa;
   }
-
   select {
-    background: #16213e;
-    color: #eee;
-    border: 1px solid #2a4060;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 0.9em;
-    font-family: inherit;
-    cursor: pointer;
+    background: #16213e; color: #eee;
+    border: 1px solid #2a4060; border-radius: 4px;
+    padding: 4px 8px; font-size: 0.9em;
+    font-family: inherit; cursor: pointer;
   }
 
-  /* ── 候補手パネル ── */
-  .candidates-box {
-    background: #16213e;
-    border: 1px solid #2a4060;
-    border-radius: 8px;
-    padding: 12px;
-  }
-  .candidates-box .label {
-    font-size: 0.75em;
-    color: #aaa;
-    margin-bottom: 8px;
-    letter-spacing: 0.04em;
-  }
-  .cand-row {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 0;
-    border-bottom: 1px solid #1e3050;
-    font-size: 0.78em;
-  }
-  .cand-row:last-child { border-bottom: none; }
-  .cand-rank  { color: #f0c040; width: 13px; text-align: right; flex-shrink: 0; }
-  .cand-move  { font-family: monospace; color: #80c8ff; width: 46px; flex-shrink: 0; }
-  .cand-bar-wrap { flex: 1; height: 6px; background: #0a0a1a; border-radius: 3px; overflow: hidden; }
-  .cand-bar   { height: 100%; border-radius: 3px; transition: width 0.25s; }
-  .cand-score { color: #aaa; width: 44px; text-align: right; flex-shrink: 0; }
-  .cand-empty { color: #555; font-size: 0.8em; font-style: italic; }
-
-  /* ── ゲームオーバーバナー ── */
   .gameover-banner {
     display: none;
     background: linear-gradient(135deg, #1a1a2e, #16213e);
-    border: 2px solid #f0c040;
-    border-radius: 10px;
-    padding: 16px 20px;
-    text-align: center;
+    border: 2px solid #f0c040; border-radius: 10px;
+    padding: 16px 20px; text-align: center;
   }
   .gameover-banner.active { display: block; }
   .gameover-banner h2 { font-size: 1.4em; color: #f0c040; }
   .gameover-banner p  { color: #ccc; font-size: 0.85em; margin-top: 4px; }
 
-  /* ── 評価値グラフ ── */
-  .eval-section {
+  /* ── 下部パネル共通 ── */
+  .bottom-panels {
     margin-top: 14px;
-    background: #16213e;
-    border: 1px solid #2a4060;
-    border-radius: 8px;
-    padding: 12px;
     width: 100%;
-    max-width: 740px;
+    max-width: 784px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
-  .eval-section .s-label {
-    font-size: 0.75em;
-    color: #aaa;
-    margin-bottom: 8px;
-    letter-spacing: 0.04em;
-  }
-  .chart-wrap { height: 150px; position: relative; }
 
-  /* ── 促成ダイアログ ── */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 100;
+  .panel {
+    background: #16213e; border: 1px solid #2a4060;
+    border-radius: 8px; padding: 14px;
+  }
+  .panel-title {
+    font-size: 0.8em; color: #f0c070;
+    font-weight: bold; letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  /* ── 評価値グラフ ── */
+  .chart-wrap { height: 160px; position: relative; }
+
+  /* ── 候補手テーブル ── */
+  .cand-grid {
+    display: grid;
+    grid-template-columns: 90px 90px 1fr 64px 1fr;
+    /* 番手 | 指し手 | バー | 評価値 | 継続手 */
     align-items: center;
-    justify-content: center;
+    gap: 0;
+    font-size: 0.8em;
+  }
+  .cand-grid-header {
+    display: contents;
+    font-size: 0.75em;
+    color: #666;
+  }
+  .cand-grid-header > div {
+    padding: 0 4px 6px;
+    border-bottom: 1px solid #1e3050;
+  }
+  .cand-row-grid {
+    display: contents;
+  }
+  .cand-row-grid > div {
+    padding: 6px 4px;
+    border-bottom: 1px solid #111825;
+    align-self: center;
+  }
+  .cand-row-grid:last-child > div { border-bottom: none; }
+
+  .cand-rank-cell {
+    font-weight: bold;
+    font-size: 0.85em;
+  }
+  .cand-move-cell {
+    font-family: monospace;
+    color: #80c8ff;
+    font-size: 0.95em;
+  }
+  .cand-bar-cell { padding-right: 8px !important; }
+  .cand-bar-wrap { height: 8px; background: #0a0a1a; border-radius: 4px; overflow: hidden; }
+  .cand-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .cand-score-cell { font-weight: bold; text-align: right; }
+  .score-pos { color: #80c8ff; }
+  .score-neg { color: #ff7070; }
+  .score-zero { color: #aaa; }
+  .cand-pv-cell { color: #555; font-family: monospace; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .arrow-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.75em; color: #666; margin-bottom: 10px;
+    cursor: pointer; user-select: none;
+  }
+  .arrow-toggle input { cursor: pointer; }
+  .cand-empty { color: #555; font-size: 0.85em; font-style: italic; }
+
+  /* ── モーダル ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 100;
+    align-items: center; justify-content: center;
   }
   .modal-overlay.active { display: flex; }
   .modal {
-    background: #16213e;
-    border: 2px solid #4080c0;
-    border-radius: 12px;
-    padding: 28px 36px;
-    text-align: center;
+    background: #16213e; border: 2px solid #4080c0;
+    border-radius: 12px; padding: 28px 36px; text-align: center;
   }
   .modal h2 { font-size: 1.2em; margin-bottom: 20px; color: #f0c040; }
   .modal-btns { display: flex; gap: 14px; justify-content: center; }
@@ -320,26 +297,17 @@
 
   /* ── AI思考中 ── */
   .thinking-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.3);
-    z-index: 50;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.4em;
-    color: #fff;
-    letter-spacing: 0.1em;
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3); z-index: 50;
+    align-items: center; justify-content: center;
+    font-size: 1.4em; color: #fff; letter-spacing: 0.1em;
   }
   .thinking-overlay.active { display: flex; }
   .spinner {
-    display: inline-block;
-    width: 28px; height: 28px;
+    display: inline-block; width: 28px; height: 28px;
     border: 3px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 12px;
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin-right: 12px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -349,8 +317,7 @@
 <header>将棋AI ― Phase 7</header>
 
 <div class="game-area">
-
-  <!-- 盤面 + 持ち駒 -->
+  <!-- 盤面 -->
   <div class="board-wrap">
     <div class="hand-box" style="width:100%">
       <div class="label">後手（AI）持ち駒</div>
@@ -360,7 +327,10 @@
     <div class="file-labels" id="file-labels"></div>
 
     <div class="board-row">
-      <div class="board" id="board"></div>
+      <div class="board-container">
+        <div class="board" id="board"></div>
+        <svg class="arrow-overlay" id="arrow-overlay" viewBox="0 0 504 504"></svg>
+      </div>
       <div class="rank-labels" id="rank-labels"></div>
     </div>
 
@@ -377,26 +347,18 @@
         <div class="status-turn" id="status-turn">―</div>
         <div class="status-info"  id="status-info"></div>
       </div>
-
       <div class="depth-row">
         <label for="depth-sel">AI 強さ：</label>
         <select id="depth-sel">
-          <option value="1">入門 (depth 1)</option>
-          <option value="2">初級 (depth 2)</option>
-          <option value="3" selected>中級 (depth 3)</option>
-          <option value="4">上級 (depth 4)</option>
-          <option value="5">最強 (depth 5)</option>
+          <option value="1">入門 (d1)</option>
+          <option value="2">初級 (d2)</option>
+          <option value="3" selected>中級 (d3)</option>
+          <option value="4">上級 (d4)</option>
+          <option value="5">最強 (d5)</option>
         </select>
       </div>
-
       <button class="btn btn-new" id="btn-new">▶ 新しい対局</button>
       <button class="btn btn-ai"  id="btn-ai" disabled>AI に指させる</button>
-    </div>
-
-    <!-- 候補手パネル -->
-    <div class="candidates-box">
-      <div class="label">AI 候補手（MultiPV）</div>
-      <div id="candidates-list"><span class="cand-empty">対局開始後に表示</span></div>
     </div>
 
     <div class="gameover-banner" id="gameover-banner">
@@ -404,18 +366,30 @@
       <p  id="gameover-sub"></p>
     </div>
   </div>
-
-</div><!-- .game-area -->
-
-<!-- 評価値グラフ -->
-<div class="eval-section">
-  <div class="s-label">評価値グラフ（先手 ▲ 優勢 = 正 / 後手 ▽ 優勢 = 負）</div>
-  <div class="chart-wrap">
-    <canvas id="eval-chart"></canvas>
-  </div>
 </div>
 
-<!-- 促成ダイアログ -->
+<!-- 下部パネル -->
+<div class="bottom-panels">
+
+  <!-- 評価値グラフ -->
+  <div class="panel">
+    <div class="panel-title">評価値グラフ（先手 ▲ 優勢 = 正 / 後手 ▽ 優勢 = 負）</div>
+    <div class="chart-wrap"><canvas id="eval-chart"></canvas></div>
+  </div>
+
+  <!-- 候補手パネル -->
+  <div class="panel">
+    <div class="panel-title">候補手分析（手番側の上位手 ／ スコアは常に先手▲視点）</div>
+    <label class="arrow-toggle">
+      <input type="checkbox" id="show-arrows" checked>
+      盤面に矢印を表示（金色=最善手、青=次善手以降）
+    </label>
+    <div id="candidates-list"><span class="cand-empty">対局開始後、AIが指した手番後に表示されます</span></div>
+  </div>
+
+</div>
+
+<!-- 成りダイアログ -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <h2>成りますか？</h2>
@@ -426,15 +400,15 @@
   </div>
 </div>
 
-<!-- AI思考中オーバーレイ -->
+<!-- AI思考中 -->
 <div class="thinking-overlay" id="thinking-overlay">
   <div class="spinner"></div> AI が考えています…
 </div>
 
 <script>
-// ─────────────────────────────────── 定数
-const RANK_KANJI  = ['一','二','三','四','五','六','七','八','九'];
-const HAND_ORDER  = ['rook','bishop','gold','silver','knight','lance','pawn'];
+// ─────────────────────────── 定数
+const RANK_KANJI   = ['一','二','三','四','五','六','七','八','九'];
+const HAND_ORDER   = ['rook','bishop','gold','silver','knight','lance','pawn'];
 const PIECE_LETTER = {rook:'R', bishop:'B', gold:'G', silver:'S', knight:'N', lance:'L', pawn:'P'};
 const PIECE_KANJI  = {
   pawn:'歩', lance:'香', knight:'桂', silver:'銀', gold:'金',
@@ -442,134 +416,184 @@ const PIECE_KANJI  = {
   prom_pawn:'と', prom_lance:'杏', prom_knight:'圭',
   prom_silver:'全', prom_bishop:'馬', prom_rook:'龍',
 };
+const RANK_JA = {a:'一',b:'二',c:'三',d:'四',e:'五',f:'六',g:'七',h:'八',i:'九'};
 
-// ─────────────────────────────────── 状態
-let state       = null;
-let selectedSq   = null;
-let selectedHand = null;
-let pendingMove  = null;
+// 矢印色（1番手=金色、以降青系で薄くなる）
+const ARROW_COLORS = [
+  { stroke:'rgba(255,210,0,0.90)',  fill:'rgba(255,210,0,0.90)'  },
+  { stroke:'rgba(80,180,255,0.70)', fill:'rgba(80,180,255,0.70)' },
+  { stroke:'rgba(80,180,255,0.50)', fill:'rgba(80,180,255,0.50)' },
+  { stroke:'rgba(80,180,255,0.35)', fill:'rgba(80,180,255,0.35)' },
+  { stroke:'rgba(80,180,255,0.25)', fill:'rgba(80,180,255,0.25)' },
+  { stroke:'rgba(80,180,255,0.18)', fill:'rgba(80,180,255,0.18)' },
+  { stroke:'rgba(80,180,255,0.12)', fill:'rgba(80,180,255,0.12)' },
+  { stroke:'rgba(80,180,255,0.08)', fill:'rgba(80,180,255,0.08)' },
+];
 
-// ─────────────────────────────────── ユーティリティ
+const CAND_RANK_LABELS = [
+  '① 最善手', '② 次善手', '③ 3番手', '④ 4番手',
+  '⑤ 5番手',  '⑥ 6番手',  '⑦ 7番手', '⑧ 8番手',
+];
+
+// ─────────────────────────── 状態
+let state = null, selectedSq = null, selectedHand = null, pendingMove = null;
+
+// ─────────────────────────── ユーティリティ
 function sqToUsi(sq) {
-  const file = 9 - (sq % 9);
-  const rank = Math.floor(sq / 9) + 1;
-  return `${file}${'abcdefghi'[rank - 1]}`;
+  return `${9-(sq%9)}${'abcdefghi'[Math.floor(sq/9)]}`;
 }
-
 function usiCoordToSq(coord) {
-  const file = parseInt(coord[0]);
-  const rank = 'abcdefghi'.indexOf(coord[1]) + 1;
-  return (rank - 1) * 9 + (9 - file);
+  return ('abcdefghi'.indexOf(coord[1])) * 9 + (9 - parseInt(coord[0]));
 }
-
+function sqToXY(sq) {
+  return { x: (sq % 9) * 56 + 28, y: Math.floor(sq / 9) * 56 + 28 };
+}
+function usiMoveToFromTo(m) {
+  if (!m || m.length < 4 || m[1] === '*') return null;
+  return { fromSq: usiCoordToSq(m.slice(0,2)), toSq: usiCoordToSq(m.slice(2,4)) };
+}
+// pieces を渡すと「3二金（4一）」形式、省略時は座標のみ
+function usiToJa(m, pieces) {
+  if (!m) return '';
+  if (m[1] === '*') {
+    // 打ち駒: "P*3b" → "3二歩打"
+    const pieceName = Object.keys(PIECE_LETTER).find(k => PIECE_LETTER[k] === m[0]);
+    const kanji = pieceName ? PIECE_KANJI[pieceName] : m[0];
+    return `${m[2]}${RANK_JA[m[3]]||m[3]}${kanji}打`;
+  }
+  const toFile = m[2], toRank = RANK_JA[m[3]] || m[3];
+  const fromFile = m[0], fromRank = RANK_JA[m[1]] || m[1];
+  const promo = m.endsWith('+') ? '成' : '';
+  let pieceKanji = '';
+  if (pieces) {
+    const fromSq = usiCoordToSq(m.slice(0, 2));
+    const piece = pieces.find(p => p.sq === fromSq);
+    if (piece) pieceKanji = piece.kanji;
+  }
+  return `${toFile}${toRank}${pieceKanji}${promo}（${fromFile}${fromRank}）`;
+}
 function legalDestsForSq(sq, legalMoves) {
   const fromUsi = sqToUsi(sq);
   const dests = new Map();
   for (const m of legalMoves) {
-    if (m.length < 4 || m[2] === '*') continue;
-    if (m.slice(0, 2) !== fromUsi) continue;
-    const destSq = usiCoordToSq(m.slice(2, 4));
-    const isPromo = m.endsWith('+');
-    if (!dests.has(destSq)) dests.set(destSq, {promote: null, noPromote: null});
-    if (isPromo) dests.get(destSq).promote = m;
-    else         dests.get(destSq).noPromote = m;
+    if (m.length < 4 || m[2]==='*') continue;
+    if (m.slice(0,2) !== fromUsi) continue;
+    const dSq = usiCoordToSq(m.slice(2,4));
+    if (!dests.has(dSq)) dests.set(dSq, {promote:null, noPromote:null});
+    m.endsWith('+') ? (dests.get(dSq).promote = m) : (dests.get(dSq).noPromote = m);
   }
   return dests;
 }
-
-function legalDestsForDrop(pieceName, legalMoves) {
-  const letter = PIECE_LETTER[pieceName];
+function legalDestsForDrop(name, legalMoves) {
+  const letter = PIECE_LETTER[name];
   const dests = new Set();
   for (const m of legalMoves) {
-    if (m[1] === '*' && m[0] === letter) dests.add(usiCoordToSq(m.slice(2, 4)));
+    if (m[1]==='*' && m[0]===letter) dests.add(usiCoordToSq(m.slice(2,4)));
   }
   return dests;
 }
 
-// ─────────────────────────────────── 盤面初期化
+// ─────────────────────────── 盤面初期化
 function initBoard() {
   const fl = document.getElementById('file-labels');
   fl.innerHTML = '';
-  for (let f = 9; f >= 1; f--) {
-    const d = document.createElement('div');
-    d.textContent = f;
-    fl.appendChild(d);
+  for (let f=9; f>=1; f--) {
+    const d = document.createElement('div'); d.textContent = f; fl.appendChild(d);
   }
-
   const rl = document.getElementById('rank-labels');
   rl.innerHTML = '';
-  RANK_KANJI.forEach(k => {
-    const d = document.createElement('div');
-    d.textContent = k;
-    rl.appendChild(d);
-  });
-
+  RANK_KANJI.forEach(k => { const d=document.createElement('div'); d.textContent=k; rl.appendChild(d); });
   const board = document.getElementById('board');
   board.innerHTML = '';
-  for (let i = 0; i < 81; i++) {
+  for (let i=0; i<81; i++) {
     const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.dataset.sq = i;
+    cell.className = 'cell'; cell.dataset.sq = i;
     cell.addEventListener('click', () => onCellClick(i));
     board.appendChild(cell);
   }
 }
 
-// ─────────────────────────────────── 画面更新
+// ─────────────────────────── SVG矢印
+function drawArrow(svg, x1, y1, x2, y2, color, sw) {
+  const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+  if (len < 1) return;
+  const ahl = Math.min(18, len*0.35), ahw = ahl*0.7;
+  const shrink = ahl*0.6;
+  const ex = x2-dx/len*shrink, ey = y2-dy/len*shrink;
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+  line.setAttribute('x2',ex); line.setAttribute('y2',ey);
+  line.setAttribute('stroke',color.stroke); line.setAttribute('stroke-width',sw);
+  line.setAttribute('stroke-linecap','round');
+  svg.appendChild(line);
+  const ux=dx/len, uy=dy/len, px=-uy, py=ux;
+  const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  poly.setAttribute('points',
+    `${x2},${y2} ${x2-ux*ahl+px*ahw*0.5},${y2-uy*ahl+py*ahw*0.5} ${x2-ux*ahl-px*ahw*0.5},${y2-uy*ahl-py*ahw*0.5}`);
+  poly.setAttribute('fill',color.fill);
+  svg.appendChild(poly);
+}
+
+function renderArrows(candidates) {
+  const svg = document.getElementById('arrow-overlay');
+  svg.innerHTML = '';
+  if (!candidates || !candidates.length) return;
+  if (!document.getElementById('show-arrows').checked) return;
+  for (let i=Math.min(candidates.length, ARROW_COLORS.length)-1; i>=0; i--) {
+    const ft = usiMoveToFromTo(candidates[i].move);
+    if (!ft) continue;
+    const from = sqToXY(ft.fromSq), to = sqToXY(ft.toSq);
+    drawArrow(svg, from.x, from.y, to.x, to.y, ARROW_COLORS[i], i===0?5:3);
+  }
+}
+
+// ─────────────────────────── 盤面描画
 function renderBoard() {
   if (!state) return;
-
-  document.querySelectorAll('.cell').forEach(c => {
-    c.className = 'cell';
-    c.innerHTML = '';
-  });
-
-  if (state.last_move && state.last_move.length >= 4 && state.last_move[1] !== '*') {
-    const destSq = usiCoordToSq(state.last_move.slice(2, 4));
-    const dc = document.querySelector(`.cell[data-sq="${destSq}"]`);
+  document.querySelectorAll('.cell').forEach(c => { c.className='cell'; c.innerHTML=''; });
+  if (state.last_move && state.last_move.length>=4 && state.last_move[1]!=='*') {
+    const dSq = usiCoordToSq(state.last_move.slice(2,4));
+    const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
     if (dc) dc.classList.add('last-move');
+    const fSq = usiCoordToSq(state.last_move.slice(0,2));
+    const fc = document.querySelector(`.cell[data-sq="${fSq}"]`);
+    if (fc) fc.classList.add('last-move-from');
   }
-
   state.pieces.forEach(p => {
     const cell = document.querySelector(`.cell[data-sq="${p.sq}"]`);
     if (!cell) return;
     const span = document.createElement('span');
-    span.className = `piece ${p.color}${p.promoted ? ' promoted' : ''}`;
+    span.className = `piece ${p.color}${p.promoted?' promoted':''}`;
     span.textContent = p.kanji;
     cell.appendChild(span);
   });
-
   if (selectedSq !== null) {
     const sel = document.querySelector(`.cell[data-sq="${selectedSq}"]`);
     if (sel) sel.classList.add('selected');
-    legalDestsForSq(selectedSq, state.legal_moves).forEach((_, destSq) => {
-      const dc = document.querySelector(`.cell[data-sq="${destSq}"]`);
+    legalDestsForSq(selectedSq, state.legal_moves).forEach((_,dSq) => {
+      const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
       if (dc) dc.classList.add('legal-dest');
     });
   }
-
   if (selectedHand !== null) {
-    legalDestsForDrop(selectedHand, state.legal_moves).forEach(destSq => {
-      const dc = document.querySelector(`.cell[data-sq="${destSq}"]`);
+    legalDestsForDrop(selectedHand, state.legal_moves).forEach(dSq => {
+      const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
       if (dc) dc.classList.add('legal-dest');
     });
   }
-
   renderHand('black', state.hands.black, false);
   renderHand('white', state.hands.white, true);
-
   const turnEl = document.getElementById('status-turn');
   const infoEl = document.getElementById('status-info');
-
   if (state.is_game_over) {
-    const winner = state.winner;
-    turnEl.textContent = winner === 'black' ? '先手の勝ち！' : '後手の勝ち！';
-    turnEl.className = `status-turn ${winner}`;
+    const w = state.winner;
+    turnEl.textContent = w==='black' ? '先手の勝ち！' : '後手の勝ち！';
+    turnEl.className = `status-turn ${w}`;
     infoEl.textContent = `${state.move_count} 手で終局`;
-    showGameOver(winner);
+    showGameOver(w);
     document.getElementById('btn-ai').disabled = true;
   } else {
-    const isBlack = state.turn === 'black';
+    const isBlack = state.turn==='black';
     turnEl.textContent = isBlack ? '▲ 先手（あなた）の番' : '△ 後手（AI）の番';
     turnEl.className = `status-turn ${state.turn}`;
     infoEl.textContent = `${state.move_count} 手目`;
@@ -582,15 +606,12 @@ function renderHand(color, hand, isWhite) {
   const el = document.getElementById(`${color}-hand`);
   el.innerHTML = '';
   HAND_ORDER.forEach(name => {
-    const count = hand[name] || 0;
-    if (count === 0) return;
+    const count = hand[name]||0;
+    if (!count) return;
     const div = document.createElement('div');
-    div.className = `hand-piece${isWhite ? ' white-hand' : ''}`;
-    if (!isWhite && selectedHand === name) div.classList.add('selected');
-    div.innerHTML = `
-      <span class="hp-kanji">${PIECE_KANJI[name]}</span>
-      <span class="hp-count">${count > 1 ? count : ''}</span>
-    `;
+    div.className = `hand-piece${isWhite?' white-hand':''}`;
+    if (!isWhite && selectedHand===name) div.classList.add('selected');
+    div.innerHTML = `<span class="hp-kanji">${PIECE_KANJI[name]}</span><span class="hp-count">${count>1?count:''}</span>`;
     if (!isWhite) div.addEventListener('click', () => onHandClick(name));
     el.appendChild(div);
   });
@@ -599,34 +620,55 @@ function renderHand(color, hand, isWhite) {
 function showGameOver(winner) {
   const banner = document.getElementById('gameover-banner');
   banner.classList.add('active');
-  document.getElementById('gameover-title').textContent =
-    winner === 'black' ? '先手の勝ち 🎉' : '後手（AI）の勝ち';
-  document.getElementById('gameover-sub').textContent =
-    `${state.move_count} 手で終局`;
+  document.getElementById('gameover-title').textContent = winner==='black' ? '先手の勝ち 🎉' : '後手（AI）の勝ち';
+  document.getElementById('gameover-sub').textContent = `${state.move_count} 手で終局`;
 }
 
-// ─────────────────────────────────── 候補手パネル
+// ─────────────────────────── 候補手パネル
 function renderCandidates(candidates) {
   const el = document.getElementById('candidates-list');
-  if (!candidates || candidates.length === 0) {
-    el.innerHTML = '<span class="cand-empty">候補手なし</span>';
+  if (!candidates || !candidates.length) {
+    el.innerHTML = '<span class="cand-empty">候補手なし（AIが手を指した後に更新されます）</span>';
+    renderArrows([]);
     return;
   }
+
+  // 最大絶対値（バー幅計算用）
   const absMax = Math.max(1, ...candidates.map(c => Math.abs(c.score)));
-  el.innerHTML = candidates.map(c => {
-    const w = Math.min(100, Math.abs(c.score) / absMax * 100).toFixed(0);
-    const col = c.score >= 0 ? '#3060c0' : '#c03030';
-    const s = (c.score > 0 ? '+' : '') + c.score;
-    return `<div class="cand-row">
-      <span class="cand-rank">${c.rank}</span>
-      <span class="cand-move">${c.move}</span>
-      <div class="cand-bar-wrap"><div class="cand-bar" style="width:${w}%;background:${col}"></div></div>
-      <span class="cand-score">${s}</span>
+
+  // グリッド HTML 生成
+  let html = `<div class="cand-grid">
+    <div class="cand-grid-header">
+      <div>番手</div><div>指し手</div><div>形勢バー</div><div style="text-align:right">評価値</div><div>継続手（PV）</div>
     </div>`;
-  }).join('');
+
+  candidates.forEach((c, i) => {
+    const label = CAND_RANK_LABELS[i] || `${i+1}番手`;
+    const dotColor = ARROW_COLORS[i] ? ARROW_COLORS[i].stroke : 'rgba(80,180,255,0.5)';
+    const pieces = state ? state.pieces : [];
+    const jaMove = usiToJa(c.move, pieces);
+    const scoreStr = (c.score > 0 ? '+' : '') + c.score;
+    const scoreClass = c.score > 0 ? 'score-pos' : c.score < 0 ? 'score-neg' : 'score-zero';
+    const barPct = Math.min(100, Math.abs(c.score) / absMax * 100).toFixed(1);
+    const barCol = c.score >= 0 ? '#3060c0' : '#c03030';
+    // PV は盤面状態が変わるため座標表記のまま
+    const pvStr = (c.pv || []).slice(1, 5).map(m => usiToJa(m)).join(' ');
+
+    html += `<div class="cand-row-grid">
+      <div class="cand-rank-cell" style="color:${dotColor}">${label}</div>
+      <div class="cand-move-cell">${jaMove}</div>
+      <div class="cand-bar-cell"><div class="cand-bar-wrap"><div class="cand-bar" style="width:${barPct}%;background:${barCol}"></div></div></div>
+      <div class="cand-score-cell ${scoreClass}">${scoreStr}</div>
+      <div class="cand-pv-cell">${pvStr || '—'}</div>
+    </div>`;
+  });
+
+  html += '</div>';
+  el.innerHTML = html;
+  renderArrows(candidates);
 }
 
-// ─────────────────────────────────── 評価値グラフ (Chart.js)
+// ─────────────────────────── 評価値グラフ
 let evalChart = null;
 
 function initChart() {
@@ -635,56 +677,51 @@ function initChart() {
     type: 'line',
     data: {
       labels: [],
-      datasets: [
-        {
-          label: '先手優勢',
-          data: [],
-          fill: 'origin',
-          backgroundColor: 'rgba(48,96,192,0.22)',
-          borderColor: 'transparent',
-          pointRadius: 0,
-          tension: 0.3,
+      datasets: [{
+        label: '評価値（先手視点）',
+        data: [],
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        fill: false,
+        segment: {
+          borderColor: ctx => ctx.p0.parsed.y >= 0 ? '#80c8ff' : '#ff7070',
         },
-        {
-          label: '後手優勢',
-          data: [],
-          fill: 'origin',
-          backgroundColor: 'rgba(192,48,48,0.22)',
-          borderColor: 'transparent',
-          pointRadius: 0,
-          tension: 0.3,
-        },
-        {
-          label: '評価値',
-          data: [],
-          borderColor: '#80c8ff',
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          fill: false,
-          tension: 0.3,
-        },
-      ],
+        pointBackgroundColor: '#80c8ff',
+      }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 150 },
+      animation: { duration: 200 },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: {
-          labels: { color: '#aaa', font: { size: 10 }, boxWidth: 10, padding: 10 },
+        legend: { labels: { color: '#aaa', font: { size: 10 }, boxWidth: 10 } },
+        tooltip: {
+          backgroundColor: '#1a1a2e', borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#aaa', bodyColor: '#eee',
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return `評価値: ${v>0?'+':''}${v}`;
+            },
+          },
         },
       },
       scales: {
         x: {
           title: { display: true, text: '手数', color: '#aaa', font: { size: 10 } },
           ticks: { color: '#888', font: { size: 9 } },
-          grid:  { color: '#1e2a3a' },
+          grid: { color: '#1e2a3a' },
         },
         y: {
           title: { display: true, text: 'cp', color: '#aaa', font: { size: 10 } },
-          ticks: { color: '#888', font: { size: 9 } },
-          grid:  { color: '#1e2a3a' },
+          ticks: { color: '#888', font: { size: 9 }, callback: v => v>0?`+${v}`:v },
+          grid: {
+            color: ctx => ctx.tick.value === 0 ? 'rgba(255,255,255,0.3)' : '#1e2a3a',
+            lineWidth: ctx => ctx.tick.value === 0 ? 1.5 : 1,
+          },
         },
       },
     },
@@ -692,54 +729,43 @@ function initChart() {
 }
 
 function updateChart(evalHistory) {
-  if (!evalChart || !evalHistory) return;
-  const labels = evalHistory.map((_, i) => i + 1);
-  evalChart.data.labels = labels;
-  evalChart.data.datasets[0].data = evalHistory.map(v => Math.max(0, v));
-  evalChart.data.datasets[1].data = evalHistory.map(v => Math.min(0, v));
-  evalChart.data.datasets[2].data = evalHistory;
-  evalChart.update();
+  if (!evalChart) return;
+  if (!evalHistory) evalHistory = [];
+  evalChart.data.labels = evalHistory.map((_, i) => `${i+1}手`);
+  evalChart.data.datasets[0].data = evalHistory;
+  evalChart.update('none');
 }
 
-// ─────────────────────────────────── WebSocket
+// ─────────────────────────── WebSocket
 let ws = null;
-
 function connectWS() {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${proto}//${location.host}/ws`);
-  ws.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    // WS からの push は盤面は更新せず、グラフと候補手のみ更新（REST と二重にならない）
-    if (data.eval_history !== undefined) updateChart(data.eval_history);
-    if (data.last_candidates !== undefined) renderCandidates(data.last_candidates);
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.eval_history !== undefined) updateChart(d.eval_history);
+    if (d.last_candidates !== undefined) renderCandidates(d.last_candidates);
   };
   ws.onclose = () => setTimeout(connectWS, 2000);
   ws.onerror = () => ws.close();
 }
+setInterval(() => { if (ws && ws.readyState===WebSocket.OPEN) ws.send('ping'); }, 25000);
 
-// 25秒ごとに ping を送って接続を維持
-setInterval(() => {
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping');
-}, 25000);
+document.getElementById('show-arrows').addEventListener('change', () => {
+  const cands = state && state.last_candidates ? state.last_candidates : [];
+  renderArrows(cands);
+});
 
-// ─────────────────────────────────── クリックハンドラ
+// ─────────────────────────── クリック
 function onCellClick(sq) {
-  if (!state || state.is_game_over) return;
-  if (state.turn !== 'black') return;
-
+  if (!state || state.is_game_over || state.turn!=='black') return;
   if (selectedHand !== null) {
-    const letter = PIECE_LETTER[selectedHand];
-    const move = `${letter}*${sqToUsi(sq)}`;
-    if (state.legal_moves.includes(move)) {
-      clearSelection();
-      sendMove(move);
-    } else {
-      clearSelection();
-      renderBoard();
-    }
+    const move = `${PIECE_LETTER[selectedHand]}*${sqToUsi(sq)}`;
+    clearSelection();
+    if (state.legal_moves.includes(move)) sendMove(move);
+    else renderBoard();
     return;
   }
-
   if (selectedSq !== null) {
     const dests = legalDestsForSq(selectedSq, state.legal_moves);
     if (dests.has(sq)) {
@@ -755,77 +781,51 @@ function onCellClick(sq) {
     }
     clearSelection();
   }
-
-  const piece = state.pieces.find(p => p.sq === sq && p.color === 'black');
-  if (piece) {
-    selectedSq = sq;
-    renderBoard();
-  }
+  const piece = state.pieces.find(p => p.sq===sq && p.color==='black');
+  if (piece) { selectedSq = sq; renderBoard(); }
 }
 
 function onHandClick(name) {
-  if (!state || state.is_game_over) return;
-  if (state.turn !== 'black') return;
-  if (selectedHand === name) {
-    clearSelection();
-    renderBoard();
-    return;
-  }
-  clearSelection();
-  selectedHand = name;
-  renderBoard();
+  if (!state || state.is_game_over || state.turn!=='black') return;
+  if (selectedHand===name) { clearSelection(); renderBoard(); return; }
+  clearSelection(); selectedHand = name; renderBoard();
 }
 
-function clearSelection() {
-  selectedSq   = null;
-  selectedHand = null;
-}
+function clearSelection() { selectedSq = null; selectedHand = null; }
 
-// ─────────────────────────────────── 促成ダイアログ
+// ─────────────────────────── 成りダイアログ
 document.getElementById('btn-promote').addEventListener('click', () => {
   if (!pendingMove) return;
   document.getElementById('modal-overlay').classList.remove('active');
-  const move = pendingMove.promote;
-  pendingMove = null;
-  sendMove(move);
+  const move = pendingMove.promote; pendingMove = null; sendMove(move);
 });
-
 document.getElementById('btn-no-promote').addEventListener('click', () => {
   if (!pendingMove) return;
   document.getElementById('modal-overlay').classList.remove('active');
-  const move = pendingMove.noPromote;
-  pendingMove = null;
-  sendMove(move);
+  const move = pendingMove.noPromote; pendingMove = null; sendMove(move);
 });
 
-// ─────────────────────────────────── サーバー通信
+// ─────────────────────────── サーバー通信
 async function sendMove(usiMove) {
   try {
     const res = await fetch('/api/move', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({move: usiMove}),
     });
     if (!res.ok) throw new Error(await res.text());
     state = await res.json();
-    renderBoard();
-    updateChart(state.eval_history);
-    if (!state.is_game_over && state.turn === 'white') requestAiMove();
-  } catch (e) {
-    console.error('sendMove error:', e);
-    alert('エラー: ' + e.message);
-  }
+    renderBoard(); updateChart(state.eval_history);
+    if (!state.is_game_over && state.turn==='white') requestAiMove();
+  } catch (e) { console.error(e); alert('エラー: ' + e.message); }
 }
 
 async function requestAiMove() {
   const depth = parseInt(document.getElementById('depth-sel').value);
-  const overlay = document.getElementById('thinking-overlay');
-  overlay.classList.add('active');
+  document.getElementById('thinking-overlay').classList.add('active');
   document.getElementById('btn-ai').disabled = true;
   try {
     const res = await fetch('/api/ai-move', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({depth}),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -833,47 +833,34 @@ async function requestAiMove() {
     renderBoard();
     updateChart(state.eval_history);
     renderCandidates(state.last_candidates);
-  } catch (e) {
-    console.error('AI move error:', e);
-    alert('AI エラー: ' + e.message);
-  } finally {
-    overlay.classList.remove('active');
-  }
+  } catch (e) { console.error(e); alert('AI エラー: ' + e.message); }
+  finally { document.getElementById('thinking-overlay').classList.remove('active'); }
 }
 
 document.getElementById('btn-ai').addEventListener('click', () => {
-  if (!state || state.turn !== 'black') return;
+  if (!state || state.turn!=='black') return;
   requestAiMove();
 });
 
 document.getElementById('btn-new').addEventListener('click', async () => {
-  clearSelection();
-  pendingMove = null;
+  clearSelection(); pendingMove = null;
   try {
-    const res = await fetch('/api/new-game', {method: 'POST'});
+    const res = await fetch('/api/new-game', {method:'POST'});
     state = await res.json();
     document.getElementById('gameover-banner').classList.remove('active');
-    renderBoard();
-    updateChart([]);
-    renderCandidates([]);
-  } catch (e) {
-    console.error('new-game error:', e);
-  }
+    renderBoard(); updateChart([]); renderCandidates([]);
+  } catch (e) { console.error(e); }
 });
 
-// ─────────────────────────────────── 初期化
+// ─────────────────────────── 初期化
 (async () => {
-  initBoard();
-  initChart();
-  connectWS();
+  initBoard(); initChart(); connectWS();
   try {
     const res = await fetch('/api/state');
     state = await res.json();
     updateChart(state.eval_history || []);
     renderCandidates(state.last_candidates || []);
-  } catch {
-    // サーバー未起動なら待機
-  }
+  } catch { /* サーバー未起動 */ }
   renderBoard();
 })();
 </script>
