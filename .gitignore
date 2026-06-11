@@ -59,3 +59,6 @@ analysis_output/
 .idea/
 *.swp
 *.swo
+
+# solve/ - 生成物
+solve/data/
