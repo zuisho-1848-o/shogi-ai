@@ -10,30 +10,49 @@ env/
 dist/
 build/
 *.egg
+.ruff_cache/
+.pyre/
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
 
-# Models & data（大容量バイナリ）
+# Models & data（大容量バイナリ・生成物）
 models/
 data/
 *.bin
+*.nnue
 *.onnx
 *.pt
 *.pth
+*.npz
+
+# 外部USIエンジン（ローカル配置）
+engines/**
+!engines/
+!engines/.gitkeep
+!engines/README.md
 
 # 定跡ファイル（大容量）
 book/*.sfen
 book/*.db
 !book/.gitkeep
 
-# テスト・型チェックキャッシュ
+# テスト・型チェック・カバレッジ
 .pytest_cache/
 .mypy_cache/
 htmlcov/
 .coverage
+.coverage.*
+coverage.xml
+
+# ローカル実行・解析出力
+*.log
+*.tmp
+eval.png
+outputs/
+analysis_output/
 
 # IDE
 .vscode/

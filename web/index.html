@@ -6,321 +6,534 @@
 <title>将棋AI</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
-    background: #1a1a2e;
-    color: #eee;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 16px;
-    overflow-x: auto;
-  }
+body {
+  font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  background: #0f0f1a;
+  color: #eee;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  overflow-x: auto;
+}
 
-  header {
-    font-size: 1.4em;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    margin-bottom: 12px;
-    color: #f0c070;
-  }
+header {
+  font-size: 1.3em;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+  color: #f0c070;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-  .game-area {
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
-  }
+.mode-badge {
+  font-size: 0.6em;
+  font-weight: normal;
+  letter-spacing: 0.05em;
+  background: #1e3a5f;
+  border: 1px solid #3060a0;
+  border-radius: 20px;
+  padding: 3px 10px;
+  color: #80c0ff;
+}
 
-  /* ── 盤面エリア ── */
-  .board-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
+/* ── プレイヤーバナー ── */
+.player-banner {
+  width: 100%;
+  max-width: 776px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: #16213e;
+  border: 1px solid #1e3050;
+  min-height: 44px;
+}
+.player-banner.white-banner {
+  flex-direction: row-reverse;
+  border-color: #3a2020;
+  background: #1e1428;
+}
+.player-icon { font-size: 1.3em; }
+.player-name { font-weight: bold; font-size: 0.95em; }
+.player-detail { font-size: 0.75em; color: #888; margin-left: 4px; }
+.player-side-label { font-size: 0.75em; color: #666; margin-left: auto; }
+.white-banner .player-side-label { margin-left: 0; margin-right: auto; }
+.player-thinking {
+  display: none;
+  font-size: 0.75em;
+  color: #f0c040;
+  animation: blink 1s ease-in-out infinite;
+}
+.player-thinking.active { display: inline; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.turn-indicator {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #555; flex-shrink: 0;
+}
+.turn-indicator.active-turn { background: #f0c040; box-shadow: 0 0 6px #f0c040; }
 
-  .file-labels {
-    display: grid;
-    grid-template-columns: repeat(9, 56px);
-    margin-left: 4px;
-    text-align: center;
-    font-size: 0.85em;
-    color: #aaa;
-  }
+/* ── メインレイアウト ── */
+.main-area {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
 
-  .board-row {
-    display: flex;
-    gap: 4px;
-    align-items: stretch;
-  }
+/* ── 盤面エリア ── */
+.board-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
 
-  .rank-labels {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-around;
-    font-size: 0.75em;
-    color: #aaa;
-    padding: 2px 0;
-    width: 20px;
-    text-align: center;
-  }
+.file-labels {
+  display: grid;
+  grid-template-columns: repeat(9, 56px);
+  margin-left: 4px;
+  text-align: center;
+  font-size: 0.8em;
+  color: #666;
+}
 
-  .board-container {
-    position: relative;
-    width: 504px;
-    height: 504px;
-  }
+.board-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
 
-  .board {
-    display: grid;
-    grid-template-columns: repeat(9, 56px);
-    grid-template-rows: repeat(9, 56px);
-    border: 2px solid #5a3e00;
-    background: #d4a74a;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    position: absolute;
-    top: 0; left: 0;
-  }
+.rank-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  font-size: 0.7em;
+  color: #666;
+  padding: 2px 0;
+  width: 18px;
+  text-align: center;
+}
 
-  .arrow-overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 504px; height: 504px;
-    pointer-events: none;
-    z-index: 10;
-  }
+.board-container {
+  position: relative;
+  width: 504px;
+  height: 504px;
+}
 
-  .cell {
-    width: 56px; height: 56px;
-    border: 1px solid #8b6000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
-    transition: background 0.1s;
-  }
-  .cell:hover { background: rgba(255,255,255,0.15); }
-  .cell.selected { background: rgba(30,120,255,0.35); }
-  .cell.legal-dest { background: rgba(50,200,80,0.22); }
-  .cell.legal-dest::after {
-    content: ''; position: absolute;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: rgba(30,170,60,0.55);
-    pointer-events: none;
-  }
-  .cell.last-move      { background: rgba(255,210,0,0.28); }
-  .cell.last-move-from { background: rgba(80,160,255,0.18); }
-  .cell.selected.legal-dest { background: rgba(30,120,255,0.35); }
+.board {
+  display: grid;
+  grid-template-columns: repeat(9, 56px);
+  grid-template-rows: repeat(9, 56px);
+  border: 2px solid #5a3e00;
+  background: #c8a020;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  position: absolute;
+  top: 0; left: 0;
+}
+.board.edit-mode-board {
+  outline: 3px solid #f0a020;
+}
 
-  .piece {
-    font-size: 1.55em; font-weight: bold; line-height: 1;
-    user-select: none; pointer-events: none;
-    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
-  }
-  .piece.black { color: #1a1a1a; }
-  .piece.white { color: #1a1a1a; transform: rotate(180deg); }
-  .piece.promoted { color: #bb1111; }
-  .piece.white.promoted { color: #bb1111; transform: rotate(180deg); }
+.arrow-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 504px; height: 504px;
+  pointer-events: none;
+  z-index: 10;
+}
 
-  /* ── 持ち駒 ── */
-  .hand-box {
-    background: #16213e;
-    border: 1px solid #2a4060;
-    border-radius: 8px;
-    padding: 12px;
-  }
-  .hand-box .label {
-    font-size: 0.8em; color: #aaa;
-    margin-bottom: 8px;
-  }
-  .hand-pieces { display: flex; flex-wrap: wrap; gap: 6px; }
-  .hand-piece {
-    background: #d4a74a; border: 2px solid #8b6000;
-    border-radius: 4px; width: 44px; height: 44px;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    cursor: pointer; position: relative;
-    transition: background 0.1s, border-color 0.1s;
-  }
-  .hand-piece:hover { background: #e8bc60; }
-  .hand-piece.selected { border-color: #2060ff; background: #c8d4f0; }
-  .hand-piece.white-hand { transform: rotate(180deg); }
-  .hand-piece .hp-kanji { font-size: 1.3em; font-weight: bold; color: #1a1a1a; }
-  .hand-piece .hp-count {
-    font-size: 0.68em; color: #444;
-    position: absolute; bottom: 1px; right: 3px; font-weight: bold;
-  }
-  .hand-piece.white-hand .hp-count { transform: rotate(180deg); }
+.cell {
+  width: 56px; height: 56px;
+  border: 1px solid rgba(80,60,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.1s;
+}
+.cell:hover { background: rgba(255,255,255,0.18); }
+.cell.selected { background: rgba(30,120,255,0.4); }
+.cell.legal-dest { background: rgba(50,200,80,0.2); }
+.cell.legal-dest::after {
+  content: ''; position: absolute;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: rgba(40,180,60,0.6);
+  pointer-events: none;
+}
+.cell.last-move      { background: rgba(255,200,0,0.45); }
+.cell.last-move-from { background: rgba(80,140,255,0.32); }
+.cell.last-move-drop { background: rgba(255,200,0,0.45); }
+.cell.last-move-drop::after {
+  content: '打';
+  position: absolute; bottom: 1px; right: 2px;
+  font-size: 0.55em; color: rgba(180,80,0,0.85); pointer-events: none;
+  font-weight: bold; line-height: 1;
+}
+.cell.selected.legal-dest { background: rgba(30,120,255,0.4); }
+.cell.edit-hover { background: rgba(255,160,0,0.25) !important; }
 
-  /* ── サイドバー ── */
-  .sidebar {
-    display: flex; flex-direction: column; gap: 12px; width: 200px;
-  }
-  .controls { display: flex; flex-direction: column; gap: 10px; }
-  .status-box {
-    background: #16213e; border: 1px solid #2a4060;
-    border-radius: 8px; padding: 12px; font-size: 0.9em; min-height: 70px;
-  }
-  .status-turn { font-size: 1.1em; font-weight: bold; margin-bottom: 6px; }
-  .status-turn.black { color: #80c8ff; }
-  .status-turn.white { color: #ff8080; }
-  .status-info { color: #999; font-size: 0.85em; }
+.piece {
+  font-size: 1.5em; font-weight: bold; line-height: 1;
+  user-select: none; pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.piece.black { color: #1a1a1a; }
+.piece.white { color: #1a1a1a; transform: rotate(180deg); }
+.piece.promoted { color: #bb1111; }
+.piece.white.promoted { color: #bb1111; transform: rotate(180deg); }
 
-  .btn {
-    padding: 10px 16px; border: none; border-radius: 6px;
-    cursor: pointer; font-size: 0.95em; font-weight: bold;
-    font-family: inherit; transition: opacity 0.15s;
-  }
-  .btn:hover { opacity: 0.85; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-new { background: #f0c040; color: #1a1a1a; }
-  .btn-ai  { background: #3060c0; color: #fff; }
+/* ── 持ち駒 ── */
+.hand-box {
+  background: #13192e;
+  border: 1px solid #1e3050;
+  border-radius: 6px;
+  padding: 8px 12px;
+  width: 504px;
+}
+.hand-box.edit-hand { border-color: #5a3800; cursor: pointer; }
+.hand-box .label {
+  font-size: 0.75em; color: #666;
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.hand-pieces { display: flex; flex-wrap: wrap; gap: 5px; }
+.hand-piece {
+  background: #c8a020; border: 2px solid #8b6000;
+  border-radius: 4px; width: 40px; height: 40px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  transition: background 0.1s, border-color 0.1s;
+}
+.hand-piece:hover { background: #ddb430; }
+.hand-piece.selected { border-color: #2060ff; background: #c0ccf0; }
+.hand-piece.white-hand { transform: rotate(180deg); cursor: default; }
+.hand-piece .hp-kanji { font-size: 1.2em; font-weight: bold; color: #1a1a1a; }
+.hand-piece .hp-count {
+  font-size: 0.65em; color: #444;
+  position: absolute; bottom: 1px; right: 3px; font-weight: bold;
+}
+.hand-piece.white-hand .hp-count { transform: rotate(180deg); }
 
-  .depth-row {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.85em; color: #aaa;
-  }
-  select {
-    background: #16213e; color: #eee;
-    border: 1px solid #2a4060; border-radius: 4px;
-    padding: 4px 8px; font-size: 0.9em;
-    font-family: inherit; cursor: pointer;
-  }
+/* ── サイドバー ── */
+.sidebar {
+  display: flex; flex-direction: column; gap: 10px; width: 220px;
+  padding-top: 48px;
+}
 
-  .gameover-banner {
-    display: none;
-    background: linear-gradient(135deg, #1a1a2e, #16213e);
-    border: 2px solid #f0c040; border-radius: 10px;
-    padding: 16px 20px; text-align: center;
-  }
-  .gameover-banner.active { display: block; }
-  .gameover-banner h2 { font-size: 1.4em; color: #f0c040; }
-  .gameover-banner p  { color: #ccc; font-size: 0.85em; margin-top: 4px; }
+.panel-card {
+  background: #13192e;
+  border: 1px solid #1e3050;
+  border-radius: 8px;
+  padding: 12px;
+}
+.panel-card-title {
+  font-size: 0.7em; color: #f0c070;
+  font-weight: bold; letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
 
-  /* ── 下部パネル共通 ── */
-  .bottom-panels {
-    margin-top: 14px;
-    width: 100%;
-    max-width: 784px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
+select, input[type=text], input[type=number] {
+  background: #0f172a; color: #eee;
+  border: 1px solid #2a4060; border-radius: 4px;
+  padding: 5px 8px; font-size: 0.82em;
+  font-family: inherit; cursor: pointer; width: 100%;
+}
+select:focus, input:focus { outline: 1px solid #4080c0; }
 
-  .panel {
-    background: #16213e; border: 1px solid #2a4060;
-    border-radius: 8px; padding: 14px;
-  }
-  .panel-title {
-    font-size: 0.8em; color: #f0c070;
-    font-weight: bold; letter-spacing: 0.06em;
-    margin-bottom: 10px;
-  }
+/* ── コントロール ── */
+.btn {
+  padding: 9px 14px; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 0.88em; font-weight: bold;
+  font-family: inherit; transition: opacity 0.15s, transform 0.1s;
+  width: 100%;
+  text-align: center;
+}
+.btn:hover { opacity: 0.85; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.btn-new      { background: #e8b830; color: #1a1a1a; }
+.btn-swap     { background: #1a3050; color: #80c0ff; border: 1px solid #2a5080; }
+.btn-edit     { background: #1a2a40; color: #80d0b0; border: 1px solid #2a5040; }
+.btn-apply    { background: #1a5030; color: #ceffdc; border: 1px solid #2a8050; }
+.btn-autoplay { background: #2a1a40; color: #c090ff; border: 1px solid #5030a0; }
+.btn-autoplay.running { background: #1a0a30; color: #ff6060; border-color: #a03030; }
+.btn-danger   { background: #3a1010; color: #ff9090; border: 1px solid #a03030; }
 
-  /* ── 評価値グラフ ── */
-  .chart-wrap { height: 160px; position: relative; }
+.autoplay-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75em; color: #666;
+}
+.autoplay-row select { flex: 1; }
 
-  /* ── 候補手テーブル ── */
-  .cand-grid {
-    display: grid;
-    grid-template-columns: 90px 90px 1fr 64px 1fr;
-    /* 番手 | 指し手 | バー | 評価値 | 継続手 */
-    align-items: center;
-    gap: 0;
-    font-size: 0.8em;
-  }
-  .cand-grid-header {
-    display: contents;
-    font-size: 0.75em;
-    color: #666;
-  }
-  .cand-grid-header > div {
-    padding: 0 4px 6px;
-    border-bottom: 1px solid #1e3050;
-  }
-  .cand-row-grid {
-    display: contents;
-  }
-  .cand-row-grid > div {
-    padding: 6px 4px;
-    border-bottom: 1px solid #111825;
-    align-self: center;
-  }
-  .cand-row-grid:last-child > div { border-bottom: none; }
+/* ── ステータス ── */
+.status-box {
+  background: #0f172a; border: 1px solid #1e3050;
+  border-radius: 6px; padding: 10px; font-size: 0.88em;
+}
+.status-turn { font-size: 1em; font-weight: bold; margin-bottom: 4px; }
+.status-turn.black { color: #80c8ff; }
+.status-turn.white { color: #ff9090; }
+.status-info { color: #777; font-size: 0.82em; }
 
-  .cand-rank-cell {
-    font-weight: bold;
-    font-size: 0.85em;
-  }
-  .cand-move-cell {
-    font-family: monospace;
-    color: #80c8ff;
-    font-size: 0.95em;
-  }
-  .cand-bar-cell { padding-right: 8px !important; }
-  .cand-bar-wrap { height: 8px; background: #0a0a1a; border-radius: 4px; overflow: hidden; }
-  .cand-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
-  .cand-score-cell { font-weight: bold; text-align: right; }
-  .score-pos { color: #80c8ff; }
-  .score-neg { color: #ff7070; }
-  .score-zero { color: #aaa; }
-  .cand-pv-cell { color: #555; font-family: monospace; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ── ゲームオーバー ── */
+.gameover-banner {
+  display: none;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 2px solid #f0c040; border-radius: 8px;
+  padding: 14px 16px; text-align: center;
+}
+.gameover-banner.active { display: block; }
+.gameover-banner h2 { font-size: 1.2em; color: #f0c040; }
+.gameover-banner p  { color: #aaa; font-size: 0.78em; margin-top: 4px; }
 
-  .arrow-toggle {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 0.75em; color: #666; margin-bottom: 10px;
-    cursor: pointer; user-select: none;
-  }
-  .arrow-toggle input { cursor: pointer; }
-  .cand-empty { color: #555; font-size: 0.85em; font-style: italic; }
+/* ── 下部パネル ── */
+.bottom-panels {
+  margin-top: 10px;
+  width: 100%;
+  max-width: 776px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-  /* ── モーダル ── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.6); z-index: 100;
-    align-items: center; justify-content: center;
-  }
-  .modal-overlay.active { display: flex; }
-  .modal {
-    background: #16213e; border: 2px solid #4080c0;
-    border-radius: 12px; padding: 28px 36px; text-align: center;
-  }
-  .modal h2 { font-size: 1.2em; margin-bottom: 20px; color: #f0c040; }
-  .modal-btns { display: flex; gap: 14px; justify-content: center; }
-  .btn-promote    { background: #bb1111; color: #fff; }
-  .btn-no-promote { background: #444;    color: #fff; }
+.panel {
+  background: #13192e; border: 1px solid #1e3050;
+  border-radius: 8px; padding: 12px;
+}
+.panel-title {
+  font-size: 0.75em; color: #f0c070;
+  font-weight: bold; letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
 
-  /* ── AI思考中 ── */
-  .thinking-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.3); z-index: 50;
-    align-items: center; justify-content: center;
-    font-size: 1.4em; color: #fff; letter-spacing: 0.1em;
-  }
-  .thinking-overlay.active { display: flex; }
-  .spinner {
-    display: inline-block; width: 28px; height: 28px;
-    border: 3px solid rgba(255,255,255,0.3);
-    border-top-color: #fff; border-radius: 50%;
-    animation: spin 0.8s linear infinite; margin-right: 12px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.chart-wrap { height: 150px; position: relative; }
+
+/* ── 候補手テーブル ── */
+.cand-grid {
+  display: grid;
+  grid-template-columns: 90px 90px 1fr 64px 1fr;
+  align-items: center;
+  font-size: 0.78em;
+}
+.cand-grid-header { display: contents; }
+.cand-grid-header > div {
+  padding: 0 4px 6px; border-bottom: 1px solid #1e3050;
+  font-size: 0.75em; color: #555;
+}
+.cand-row-grid { display: contents; }
+.cand-row-grid > div {
+  padding: 5px 4px; border-bottom: 1px solid #0f172a; align-self: center;
+}
+.cand-row-grid:last-child > div { border-bottom: none; }
+
+.cand-rank-cell { font-weight: bold; font-size: 0.82em; }
+.cand-move-cell { font-family: monospace; color: #80c8ff; font-size: 0.92em; }
+.cand-bar-cell { padding-right: 8px !important; }
+.cand-bar-wrap { height: 7px; background: #0a0a1a; border-radius: 4px; overflow: hidden; }
+.cand-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.cand-score-cell { font-weight: bold; text-align: right; }
+.score-pos { color: #80c8ff; }
+.score-neg { color: #ff7070; }
+.score-zero { color: #888; }
+.cand-pv-cell { color: #444; font-family: monospace; font-size: 0.82em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.arrow-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72em; color: #555; margin-bottom: 8px;
+  cursor: pointer; user-select: none;
+}
+.arrow-toggle input { cursor: pointer; }
+.cand-empty { color: #444; font-size: 0.82em; font-style: italic; }
+
+/* ── 盤面編集パネル ── */
+.edit-panel {
+  display: none;
+  background: #13192e; border: 2px solid #5a3800;
+  border-radius: 8px; padding: 14px;
+  width: 100%; max-width: 776px;
+  margin-top: 10px;
+}
+.edit-panel.active { display: block; }
+.edit-panel-title {
+  font-size: 0.78em; color: #f0a020;
+  font-weight: bold; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.edit-section { margin-bottom: 14px; }
+.edit-section-label { font-size: 0.72em; color: #888; margin-bottom: 6px; }
+
+/* 駒パレット */
+.piece-palette {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;
+}
+.palette-piece {
+  width: 38px; height: 38px;
+  background: #c8a020; border: 2px solid #6b5000;
+  border-radius: 4px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1.1em; font-weight: bold;
+  color: #1a1a1a; transition: background 0.1s, border-color 0.1s;
+  user-select: none;
+}
+.palette-piece.white-pal { transform: rotate(180deg); }
+.palette-piece.selected-piece { border-color: #2060ff; background: #c0ccf0; }
+.palette-piece.eraser { background: #2a2a3a; color: #888; font-size: 0.9em; border-color: #444; }
+.palette-sep {
+  width: 1px; background: #2a3050; align-self: stretch; margin: 0 4px;
+}
+
+.edit-turn-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.82em;
+}
+.turn-toggle-btn {
+  padding: 5px 16px; border: 1px solid #2a4060; border-radius: 6px;
+  background: #0f172a; color: #eee; cursor: pointer; font-size: 0.9em;
+  font-family: inherit;
+}
+.turn-toggle-btn:hover { background: #1a2a40; }
+
+.sfen-row {
+  display: flex; gap: 6px; align-items: center;
+}
+.sfen-row input { flex: 1; font-size: 0.78em; }
+.sfen-row button {
+  padding: 5px 10px; border: 1px solid #2a4060; border-radius: 4px;
+  background: #0f172a; color: #eee; cursor: pointer; font-size: 0.8em;
+  font-family: inherit; white-space: nowrap;
+}
+.sfen-row button:hover { background: #1a2a40; }
+
+.edit-btns { display: flex; gap: 8px; }
+.edit-btns .btn { flex: 1; }
+
+/* 持ち駒編集 */
+.edit-hand-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8em; flex-wrap: wrap;
+}
+.edit-hand-piece {
+  display: flex; align-items: center; gap: 2px;
+}
+.edit-hand-piece span { color: #888; }
+.edit-hand-count {
+  width: 36px; padding: 2px 4px; font-size: 0.85em;
+  background: #0f172a; border: 1px solid #2a4060;
+  border-radius: 3px; color: #eee; text-align: center;
+}
+
+/* ── モーダル共通 ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); z-index: 100;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #16213e; border: 2px solid #4080c0;
+  border-radius: 12px; padding: 28px 36px; text-align: center;
+}
+.modal h2 { font-size: 1.1em; margin-bottom: 18px; color: #f0c040; }
+.modal-btns { display: flex; gap: 12px; justify-content: center; }
+.btn-promote    { background: #bb1111; color: #fff; width: auto; padding: 8px 20px; }
+.btn-no-promote { background: #333;    color: #fff; width: auto; padding: 8px 20px; }
+
+/* ── 新局設定モーダル ── */
+.setup-modal-body {
+  width: 360px; text-align: left;
+}
+.setup-modal-body h2 { text-align: center; }
+.setup-field { margin-bottom: 14px; }
+.setup-field-label {
+  font-size: 0.75em; color: #888; margin-bottom: 6px;
+}
+.setup-field select, .setup-field input { width: 100%; }
+
+.side-btns {
+  display: flex; gap: 8px;
+}
+.side-btn {
+  flex: 1; padding: 10px; border-radius: 6px;
+  border: 2px solid #2a4060; background: #0f172a;
+  color: #aaa; cursor: pointer; font-size: 0.9em;
+  font-family: inherit; font-weight: bold;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.side-btn:hover { background: #1a2a40; }
+.side-btn.active {
+  border-color: #f0c040; background: #1a2a10; color: #f0c040;
+}
+
+.setup-divider { border: none; border-top: 1px solid #1e3050; margin: 4px 0 14px; }
+
+/* ── AI思考中 ── */
+.thinking-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.25); z-index: 50;
+  align-items: center; justify-content: center;
+  font-size: 1.3em; color: #fff; letter-spacing: 0.08em;
+}
+.thinking-overlay.active { display: flex; }
+.spinner {
+  display: inline-block; width: 24px; height: 24px;
+  border: 3px solid rgba(255,255,255,0.25);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite; margin-right: 10px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── エラーバー ── */
+.error-bar {
+  display: none;
+  background: #3a1010; border: 1px solid #a03030;
+  border-radius: 6px; padding: 8px 12px;
+  font-size: 0.82em; color: #ff9090;
+  width: 100%; max-width: 776px; margin-bottom: 8px;
+}
+.error-bar.active { display: block; }
 </style>
 </head>
 <body>
 
-<header>将棋AI ― Phase 7</header>
+<header>
+  将棋AI
+  <span class="mode-badge" id="mode-badge">―</span>
+</header>
 
-<div class="game-area">
-  <!-- 盤面 -->
+<div class="error-bar" id="error-bar"></div>
+
+<!-- 後手プレイヤーバナー -->
+<div class="player-banner white-banner" id="white-banner">
+  <div class="turn-indicator" id="white-turn-dot"></div>
+  <span class="player-icon" id="white-icon">🤖</span>
+  <span class="player-name" id="white-name">後手 AI</span>
+  <span class="player-detail" id="white-detail"></span>
+  <span class="player-thinking" id="white-thinking">思考中…</span>
+  <span class="player-side-label">▽ 後手</span>
+</div>
+
+<div class="main-area">
+  <!-- 盤面エリア -->
   <div class="board-wrap">
-    <div class="hand-box" style="width:100%">
-      <div class="label">後手（AI）持ち駒</div>
+    <div class="hand-box" id="white-hand-box">
+      <div class="label"><span>後手の持ち駒</span></div>
       <div class="hand-pieces" id="white-hand"></div>
     </div>
 
@@ -334,59 +547,217 @@
       <div class="rank-labels" id="rank-labels"></div>
     </div>
 
-    <div class="hand-box" style="width:100%">
-      <div class="label">先手（あなた）持ち駒</div>
+    <div class="hand-box" id="black-hand-box">
+      <div class="label"><span>先手の持ち駒</span></div>
       <div class="hand-pieces" id="black-hand"></div>
     </div>
   </div>
 
   <!-- サイドバー -->
   <div class="sidebar">
-    <div class="controls">
-      <div class="status-box">
-        <div class="status-turn" id="status-turn">―</div>
-        <div class="status-info"  id="status-info"></div>
+
+    <!-- 対局コントロール -->
+    <div class="panel-card">
+      <div class="panel-card-title">対局</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-new" id="btn-new" onclick="showSetupModal()">▶ 新しい対局</button>
+        <button class="btn btn-swap" id="btn-swap" onclick="swapSides()">⇄ 先後入替</button>
+        <button class="btn btn-edit" id="btn-edit" onclick="toggleEditMode()">✏ 盤面編集</button>
+
+        <!-- AI vs AI オートプレイ -->
+        <div id="autoplay-section" style="display:none">
+          <div class="autoplay-row" style="margin-bottom:6px">
+            <span>速度</span>
+            <select id="autoplay-speed-sel">
+              <option value="300">0.3秒/手</option>
+              <option value="800" selected>0.8秒/手</option>
+              <option value="1500">1.5秒/手</option>
+              <option value="3000">3秒/手</option>
+            </select>
+          </div>
+          <button class="btn btn-autoplay" id="btn-autoplay" onclick="toggleAutoPlay()">
+            ▶ オートプレイ開始
+          </button>
+        </div>
       </div>
-      <div class="depth-row">
-        <label for="depth-sel">AI 強さ：</label>
-        <select id="depth-sel">
-          <option value="1">入門 (d1)</option>
-          <option value="2">初級 (d2)</option>
-          <option value="3" selected>中級 (d3)</option>
-          <option value="4">上級 (d4)</option>
-          <option value="5">最強 (d5)</option>
-        </select>
-      </div>
-      <button class="btn btn-new" id="btn-new">▶ 新しい対局</button>
-      <button class="btn btn-ai"  id="btn-ai" disabled>AI に指させる</button>
+    </div>
+
+    <!-- ステータス -->
+    <div class="status-box">
+      <div class="status-turn" id="status-turn">―</div>
+      <div class="status-info"  id="status-info"></div>
     </div>
 
     <div class="gameover-banner" id="gameover-banner">
       <h2 id="gameover-title"></h2>
       <p  id="gameover-sub"></p>
     </div>
+
+    <!-- 詳細設定（折りたたみ） -->
+    <details>
+      <summary style="font-size:0.75em;color:#555;cursor:pointer;padding:4px 0">
+        ▸ 詳細設定（上級者向け）
+      </summary>
+      <div class="panel-card" style="margin-top:8px">
+        <div class="panel-card-title">プレイヤー設定</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <!-- 先手 -->
+          <div style="font-size:0.72em;color:#888">▲ 先手</div>
+          <select id="black-type-sel" onchange="onPlayerTypeChange('black')">
+            <option value="human">👤 人間</option>
+            <option value="internal">🤖 内部AI</option>
+            <option value="usi">🔌 USIエンジン</option>
+          </select>
+          <div id="black-engine-row" style="display:none">
+            <select id="black-engine-sel" style="width:100%"></select>
+          </div>
+          <div id="black-depth-row" style="display:none;font-size:0.75em;color:#666;gap:6px;align-items:center">
+            <select id="black-depth-sel" style="flex:1">
+              <option value="1">d1 入門</option>
+              <option value="2">d2 初級</option>
+              <option value="3" selected>d3 中級</option>
+              <option value="4">d4 上級</option>
+              <option value="5">d5 強い</option>
+              <option value="7">d7 最強</option>
+            </select>
+          </div>
+          <div id="black-usi-row" style="display:none;flex-direction:column;gap:4px;font-size:0.72em;color:#666">
+            <input type="text" id="black-usi-path" placeholder="/path/to/engine">
+            <select id="black-time-sel">
+              <option value="2000">2秒</option>
+              <option value="5000" selected>5秒</option>
+              <option value="10000">10秒</option>
+              <option value="30000">30秒</option>
+            </select>
+          </div>
+
+          <hr style="border:none;border-top:1px solid #1e3050;margin:2px 0">
+
+          <!-- 後手 -->
+          <div style="font-size:0.72em;color:#888">▽ 後手</div>
+          <select id="white-type-sel" onchange="onPlayerTypeChange('white')">
+            <option value="human">👤 人間</option>
+            <option value="internal" selected>🤖 内部AI</option>
+            <option value="usi">🔌 USIエンジン</option>
+          </select>
+          <div id="white-engine-row" style="display:flex">
+            <select id="white-engine-sel" style="width:100%"></select>
+          </div>
+          <div id="white-depth-row" style="display:flex;font-size:0.75em;color:#666;gap:6px;align-items:center">
+            <select id="white-depth-sel" style="flex:1">
+              <option value="1">d1 入門</option>
+              <option value="2">d2 初級</option>
+              <option value="3" selected>d3 中級</option>
+              <option value="4">d4 上級</option>
+              <option value="5">d5 強い</option>
+              <option value="7">d7 最強</option>
+            </select>
+          </div>
+          <div id="white-usi-row" style="display:none;flex-direction:column;gap:4px;font-size:0.72em;color:#666">
+            <input type="text" id="white-usi-path" placeholder="/path/to/engine">
+            <select id="white-time-sel">
+              <option value="2000">2秒</option>
+              <option value="5000" selected>5秒</option>
+              <option value="10000">10秒</option>
+              <option value="30000">30秒</option>
+            </select>
+          </div>
+
+          <button class="btn btn-apply" id="btn-apply" onclick="applySetup()">✓ 設定を適用</button>
+        </div>
+      </div>
+    </details>
+
+  </div>
+</div>
+
+<!-- 先手プレイヤーバナー -->
+<div class="player-banner" id="black-banner">
+  <div class="turn-indicator" id="black-turn-dot"></div>
+  <span class="player-icon" id="black-icon">👤</span>
+  <span class="player-name" id="black-name">先手 人間</span>
+  <span class="player-detail" id="black-detail"></span>
+  <span class="player-thinking" id="black-thinking">思考中…</span>
+  <span class="player-side-label">▲ 先手</span>
+</div>
+
+<!-- 盤面編集パネル -->
+<div class="edit-panel" id="edit-panel">
+  <div class="edit-panel-title">
+    ✏ 盤面編集モード
+    <span style="font-size:0.85em;color:#888;font-weight:normal">
+      駒を選んで盤面クリックで配置 / 空マスクリックで消去
+    </span>
+  </div>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <!-- 左列: 駒パレット + 手番 -->
+    <div style="flex:1;min-width:280px">
+      <div class="edit-section">
+        <div class="edit-section-label">▲ 先手の駒</div>
+        <div class="piece-palette" id="palette-black"></div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-label">▽ 後手の駒</div>
+        <div class="piece-palette" id="palette-white"></div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-turn-row">
+          <span style="font-size:0.82em;color:#888">手番：</span>
+          <button class="turn-toggle-btn" id="edit-turn-btn" onclick="toggleEditTurn()">▲ 先手</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右列: 持ち駒 + SFEN -->
+    <div style="flex:1;min-width:280px">
+      <div class="edit-section">
+        <div class="edit-section-label">▲ 先手の持ち駒</div>
+        <div class="edit-hand-row" id="edit-black-hand"></div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-label">▽ 後手の持ち駒</div>
+        <div class="edit-hand-row" id="edit-white-hand"></div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-label">SFEN</div>
+        <div class="sfen-row">
+          <input type="text" id="edit-sfen" placeholder="lnsgkgsnl/1r5b1/ppppppppp/...">
+          <button onclick="loadSFENFromInput()">読込</button>
+          <button onclick="copyCurrentSFEN()">コピー</button>
+        </div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-label">初期局面プリセット</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="loadPreset('startpos')" style="padding:4px 10px;border:1px solid #2a4060;border-radius:4px;background:#0f172a;color:#eee;cursor:pointer;font-size:0.8em;font-family:inherit">平手</button>
+          <button onclick="loadPreset('empty')" style="padding:4px 10px;border:1px solid #2a4060;border-radius:4px;background:#0f172a;color:#eee;cursor:pointer;font-size:0.8em;font-family:inherit">空き盤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-btns">
+    <button class="btn btn-danger" onclick="cancelEditMode()">✕ キャンセル</button>
+    <button class="btn btn-apply" onclick="applyEditPosition()">✓ この局面から開始</button>
   </div>
 </div>
 
 <!-- 下部パネル -->
-<div class="bottom-panels">
-
-  <!-- 評価値グラフ -->
+<div class="bottom-panels" id="bottom-panels">
   <div class="panel">
-    <div class="panel-title">評価値グラフ（先手 ▲ 優勢 = 正 / 後手 ▽ 優勢 = 負）</div>
+    <div class="panel-title">評価値グラフ（先手 ▲ 優勢 = 正 ／ 後手 ▽ 優勢 = 負）</div>
     <div class="chart-wrap"><canvas id="eval-chart"></canvas></div>
   </div>
 
-  <!-- 候補手パネル -->
   <div class="panel">
-    <div class="panel-title">候補手分析（手番側の上位手 ／ スコアは常に先手▲視点）</div>
+    <div class="panel-title">候補手分析（スコアは先手▲視点）</div>
     <label class="arrow-toggle">
       <input type="checkbox" id="show-arrows" checked>
       盤面に矢印を表示（金色=最善手、青=次善手以降）
     </label>
-    <div id="candidates-list"><span class="cand-empty">対局開始後、AIが指した手番後に表示されます</span></div>
+    <div id="candidates-list"><span class="cand-empty">対局を開始してください</span></div>
   </div>
-
 </div>
 
 <!-- 成りダイアログ -->
@@ -400,9 +771,67 @@
   </div>
 </div>
 
+<!-- 新しい対局 セットアップモーダル -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal setup-modal-body">
+    <h2>新しい対局</h2>
+
+    <div class="setup-field">
+      <div class="setup-field-label">あなたの手番</div>
+      <div class="side-btns">
+        <button class="side-btn active" id="setup-side-black" onclick="selectSetupSide('black')">▲ 先手</button>
+        <button class="side-btn"        id="setup-side-white" onclick="selectSetupSide('white')">▽ 後手</button>
+      </div>
+    </div>
+
+    <hr class="setup-divider">
+
+    <div class="setup-field">
+      <div class="setup-field-label">対戦相手（AI）</div>
+      <select id="setup-engine-sel" onchange="onSetupEngineChange()"></select>
+    </div>
+
+    <!-- USI エンジンパス（USI選択時のみ表示） -->
+    <div class="setup-field" id="setup-usi-field" style="display:none">
+      <div class="setup-field-label">エンジンのパス</div>
+      <input type="text" id="setup-usi-path" placeholder="engines/yaneuraou/YaneuraOu-Material-ARM64">
+    </div>
+
+    <!-- 強さ（内部エンジン選択時のみ表示） -->
+    <div class="setup-field" id="setup-depth-field">
+      <div class="setup-field-label">強さ</div>
+      <select id="setup-depth-sel">
+        <option value="1">d1 入門</option>
+        <option value="2">d2 初級</option>
+        <option value="3" selected>d3 中級</option>
+        <option value="4">d4 上級</option>
+        <option value="5">d5 強い</option>
+        <option value="7">d7 最強</option>
+      </select>
+    </div>
+
+    <div class="setup-field">
+      <div class="setup-field-label">AI の持ち時間（1手あたり）</div>
+      <select id="setup-time-sel">
+        <option value="1000">1秒</option>
+        <option value="2000">2秒</option>
+        <option value="3000">3秒</option>
+        <option value="5000" selected>5秒</option>
+        <option value="10000">10秒</option>
+        <option value="30000">30秒</option>
+      </select>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-no-promote" onclick="hideSetupModal()">キャンセル</button>
+      <button class="btn btn-promote"    onclick="startGameFromSetup()">▶ 対局開始</button>
+    </div>
+  </div>
+</div>
+
 <!-- AI思考中 -->
 <div class="thinking-overlay" id="thinking-overlay">
-  <div class="spinner"></div> AI が考えています…
+  <div class="spinner"></div> AI が考えています… <span id="thinking-timer" style="margin-left:8px;font-variant-numeric:tabular-nums;"></span>
 </div>
 
 <script>
@@ -416,27 +845,54 @@ const PIECE_KANJI  = {
   prom_pawn:'と', prom_lance:'杏', prom_knight:'圭',
   prom_silver:'全', prom_bishop:'馬', prom_rook:'龍',
 };
+const ALL_PIECE_TYPES = [
+  'pawn','lance','knight','silver','gold','bishop','rook','king',
+  'prom_pawn','prom_lance','prom_knight','prom_silver','prom_bishop','prom_rook',
+];
 const RANK_JA = {a:'一',b:'二',c:'三',d:'四',e:'五',f:'六',g:'七',h:'八',i:'九'};
 
-// 矢印色（1番手=金色、以降青系で薄くなる）
 const ARROW_COLORS = [
-  { stroke:'rgba(255,210,0,0.90)',  fill:'rgba(255,210,0,0.90)'  },
-  { stroke:'rgba(80,180,255,0.70)', fill:'rgba(80,180,255,0.70)' },
-  { stroke:'rgba(80,180,255,0.50)', fill:'rgba(80,180,255,0.50)' },
-  { stroke:'rgba(80,180,255,0.35)', fill:'rgba(80,180,255,0.35)' },
-  { stroke:'rgba(80,180,255,0.25)', fill:'rgba(80,180,255,0.25)' },
-  { stroke:'rgba(80,180,255,0.18)', fill:'rgba(80,180,255,0.18)' },
-  { stroke:'rgba(80,180,255,0.12)', fill:'rgba(80,180,255,0.12)' },
-  { stroke:'rgba(80,180,255,0.08)', fill:'rgba(80,180,255,0.08)' },
+  { stroke:'rgba(255,210,0,0.92)',  fill:'rgba(255,210,0,0.92)'  },
+  { stroke:'rgba(80,180,255,0.72)', fill:'rgba(80,180,255,0.72)' },
+  { stroke:'rgba(80,180,255,0.52)', fill:'rgba(80,180,255,0.52)' },
+  { stroke:'rgba(80,180,255,0.36)', fill:'rgba(80,180,255,0.36)' },
+  { stroke:'rgba(80,180,255,0.24)', fill:'rgba(80,180,255,0.24)' },
+  { stroke:'rgba(80,180,255,0.16)', fill:'rgba(80,180,255,0.16)' },
+  { stroke:'rgba(80,180,255,0.10)', fill:'rgba(80,180,255,0.10)' },
+  { stroke:'rgba(80,180,255,0.06)', fill:'rgba(80,180,255,0.06)' },
 ];
-
 const CAND_RANK_LABELS = [
-  '① 最善手', '② 次善手', '③ 3番手', '④ 4番手',
-  '⑤ 5番手',  '⑥ 6番手',  '⑦ 7番手', '⑧ 8番手',
+  '① 最善手','② 次善手','③ 3番手','④ 4番手',
+  '⑤ 5番手', '⑥ 6番手', '⑦ 7番手', '⑧ 8番手',
 ];
+const MODE_LABELS = {
+  human_vs_ai:   '人間 vs AI',
+  ai_vs_human:   'AI vs 人間',
+  ai_vs_ai:      'AI vs AI',
+  human_vs_human:'人間 vs 人間',
+};
 
 // ─────────────────────────── 状態
-let state = null, selectedSq = null, selectedHand = null, pendingMove = null;
+let state = null;
+let selectedSq = null, selectedHand = null, pendingMove = null;
+let autoPlay = false;
+let autoPlayTimer = null;
+let engineList = [];
+let isProcessingMove = false;  // 着手処理中フラグ（2重送信防止）
+let isAIMoving = false;        // AI応手中フラグ（自動応手の2重防止）
+let _thinkingTimerInterval = null;
+let _thinkingStartMs = 0;
+
+// セットアップモーダル用
+let setupSide = 'black';   // 人間がどちらを持つか
+
+// 盤面編集
+let editMode = false;
+let editSelectedPiece = null;  // { kanji, type, color, promoted } or null (eraser)
+let editBoardPieces = [];      // 編集中の盤面駒リスト [{sq,type,promoted,color}]
+let editBoardHands  = { black: {}, white: {} };
+let editTurnColor   = 'black';
+let editOriginalState = null;  // キャンセル用に保存
 
 // ─────────────────────────── ユーティリティ
 function sqToUsi(sq) {
@@ -452,11 +908,9 @@ function usiMoveToFromTo(m) {
   if (!m || m.length < 4 || m[1] === '*') return null;
   return { fromSq: usiCoordToSq(m.slice(0,2)), toSq: usiCoordToSq(m.slice(2,4)) };
 }
-// pieces を渡すと「3二金（4一）」形式、省略時は座標のみ
 function usiToJa(m, pieces) {
   if (!m) return '';
   if (m[1] === '*') {
-    // 打ち駒: "P*3b" → "3二歩打"
     const pieceName = Object.keys(PIECE_LETTER).find(k => PIECE_LETTER[k] === m[0]);
     const kanji = pieceName ? PIECE_KANJI[pieceName] : m[0];
     return `${m[2]}${RANK_JA[m[3]]||m[3]}${kanji}打`;
@@ -470,6 +924,32 @@ function usiToJa(m, pieces) {
     const piece = pieces.find(p => p.sq === fromSq);
     if (piece) pieceKanji = piece.kanji;
   }
+  return `${toFile}${toRank}${pieceKanji}${promo}（${fromFile}${fromRank}）`;
+}
+function startThinkingTimer(timeLimitMs) {
+  stopThinkingTimer();
+  _thinkingStartMs = Date.now();
+  const limitSec = timeLimitMs ? (timeLimitMs / 1000).toFixed(0) : null;
+  const el = document.getElementById('thinking-timer');
+  if (el) el.textContent = limitSec ? `0.0秒 / ${limitSec}秒` : '0.0秒';
+  _thinkingTimerInterval = setInterval(() => {
+    const elapsed = ((Date.now() - _thinkingStartMs) / 1000).toFixed(1);
+    if (el) el.textContent = limitSec ? `${elapsed}秒 / ${limitSec}秒` : `${elapsed}秒`;
+  }, 100);
+}
+function stopThinkingTimer() {
+  if (_thinkingTimerInterval) { clearInterval(_thinkingTimerInterval); _thinkingTimerInterval = null; }
+  const el = document.getElementById('thinking-timer');
+  if (el) el.textContent = '';
+}
+function usiToJaWithKanji(m, pieceKanji) {
+  if (!m) return '';
+  if (m[1] === '*') {
+    return `${m[2]}${RANK_JA[m[3]]||m[3]}${pieceKanji}打`;
+  }
+  const toFile = m[2], toRank = RANK_JA[m[3]] || m[3];
+  const fromFile = m[0], fromRank = RANK_JA[m[1]] || m[1];
+  const promo = m.endsWith('+') ? '成' : '';
   return `${toFile}${toRank}${pieceKanji}${promo}（${fromFile}${fromRank}）`;
 }
 function legalDestsForSq(sq, legalMoves) {
@@ -491,6 +971,182 @@ function legalDestsForDrop(name, legalMoves) {
     if (m[1]==='*' && m[0]===letter) dests.add(usiCoordToSq(m.slice(2,4)));
   }
   return dests;
+}
+function showError(msg) {
+  const bar = document.getElementById('error-bar');
+  bar.textContent = msg;
+  bar.classList.add('active');
+  setTimeout(() => bar.classList.remove('active'), 5000);
+}
+
+// ─────────────────────────── エンジン一覧取得
+async function loadEngines() {
+  try {
+    const res = await fetch('/api/engines');
+    const data = await res.json();
+    engineList = data.internal || [];
+    populateEngineSelects();
+  } catch (e) {
+    console.error('engine list fetch failed', e);
+  }
+}
+
+function populateEngineSelects() {
+  ['black', 'white'].forEach(side => {
+    const sel = document.getElementById(`${side}-engine-sel`);
+    if (!sel) return;
+    sel.innerHTML = '';
+    engineList.forEach(eng => {
+      const opt = document.createElement('option');
+      opt.value = eng.id;
+      opt.textContent = eng.name;
+      if (eng.id === 'pst_alphabeta') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+
+  // セットアップモーダル用：内部エンジン + USI を追加
+  const setupSel = document.getElementById('setup-engine-sel');
+  if (setupSel) {
+    setupSel.innerHTML = '';
+    engineList.forEach(eng => {
+      const opt = document.createElement('option');
+      opt.value = eng.id;
+      opt.textContent = eng.name;
+      if (eng.id === 'pst_alphabeta') opt.selected = true;
+      setupSel.appendChild(opt);
+    });
+    const usiOpt = document.createElement('option');
+    usiOpt.value = '__usi__';
+    usiOpt.textContent = '🔌 USIエンジン（やねうら王など）';
+    setupSel.appendChild(usiOpt);
+  }
+}
+
+function onSetupEngineChange() {
+  const val = document.getElementById('setup-engine-sel').value;
+  const isUSI = val === '__usi__';
+  document.getElementById('setup-usi-field').style.display   = isUSI ? 'block' : 'none';
+  document.getElementById('setup-depth-field').style.display = isUSI ? 'none'  : 'block';
+}
+
+// ─────────────────────────── セットアップモーダル
+function showSetupModal() {
+  setupSide = 'black';
+  document.getElementById('setup-side-black').classList.add('active');
+  document.getElementById('setup-side-white').classList.remove('active');
+  document.getElementById('setup-modal').classList.add('active');
+}
+
+function hideSetupModal() {
+  document.getElementById('setup-modal').classList.remove('active');
+}
+
+function selectSetupSide(side) {
+  setupSide = side;
+  document.getElementById('setup-side-black').classList.toggle('active', side === 'black');
+  document.getElementById('setup-side-white').classList.toggle('active', side === 'white');
+}
+
+async function startGameFromSetup() {
+  hideSetupModal();
+  stopAutoPlay();
+
+  const engineVal = document.getElementById('setup-engine-sel').value || 'pst_alphabeta';
+  const timeLimit = parseInt(document.getElementById('setup-time-sel').value) || 5000;
+
+  let aiConfig;
+  if (engineVal === '__usi__') {
+    const usiPath = document.getElementById('setup-usi-path').value.trim();
+    aiConfig = { type: 'usi', usi_path: usiPath, time_limit_ms: timeLimit };
+  } else {
+    const depth = parseInt(document.getElementById('setup-depth-sel').value) || 3;
+    aiConfig = { type: 'internal', engine_id: engineVal, depth, time_limit_ms: timeLimit };
+  }
+  const humanConfig = { type: 'human' };
+
+  const black = setupSide === 'black' ? humanConfig : aiConfig;
+  const white = setupSide === 'white' ? humanConfig : aiConfig;
+
+  try {
+    const res = await fetch('/api/setup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ black, white }),
+    });
+    const data = await res.json();
+    if (data.errors && data.errors.length) { showError(data.errors.join(' / ')); return; }
+    await fetch('/api/new-game', { method: 'POST' });
+  } catch (e) {
+    showError('対局開始に失敗: ' + e.message);
+  }
+}
+
+// ─────────────────────────── 先後入替
+async function swapSides() {
+  if (!state) return;
+  const bp = state.black_player || {};
+  const wp = state.white_player || {};
+
+  const toConfig = (p) => {
+    if (p.type === 'human') return { type: 'human' };
+    if (p.type === 'usi')   return { type: 'usi', usi_path: p.usi_path || '', time_limit_ms: p.time_limit_ms || 5000 };
+    return { type: 'internal', engine_id: p.engine_id || 'pst_alphabeta', depth: p.depth || 3 };
+  };
+
+  try {
+    await fetch('/api/setup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ black: toConfig(wp), white: toConfig(bp) }),
+    });
+    await fetch('/api/new-game', { method: 'POST' });
+  } catch (e) {
+    showError('先後入替に失敗: ' + e.message);
+  }
+}
+
+// ─────────────────────────── 詳細設定パネル用
+function onPlayerTypeChange(side) {
+  const type = document.getElementById(`${side}-type-sel`).value;
+  const engineRow = document.getElementById(`${side}-engine-row`);
+  const depthRow  = document.getElementById(`${side}-depth-row`);
+  const usiRow    = document.getElementById(`${side}-usi-row`);
+  if (engineRow) engineRow.style.display = type === 'internal' ? 'flex' : 'none';
+  if (depthRow)  depthRow.style.display  = type === 'internal' ? 'flex' : 'none';
+  if (usiRow)    usiRow.style.display    = type === 'usi'      ? 'flex' : 'none';
+}
+
+function getPlayerConfig(side) {
+  const type = document.getElementById(`${side}-type-sel`).value;
+  const config = { type };
+  if (type === 'internal') {
+    config.engine_id = document.getElementById(`${side}-engine-sel`).value;
+    config.depth = parseInt(document.getElementById(`${side}-depth-sel`).value);
+  } else if (type === 'usi') {
+    config.usi_path = document.getElementById(`${side}-usi-path`).value.trim();
+    config.time_limit_ms = parseInt(document.getElementById(`${side}-time-sel`).value);
+  }
+  return config;
+}
+
+async function applySetup() {
+  const btn = document.getElementById('btn-apply');
+  btn.disabled = true; btn.textContent = '適用中…';
+  try {
+    const res = await fetch('/api/setup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ black: getPlayerConfig('black'), white: getPlayerConfig('white') }),
+    });
+    const data = await res.json();
+    if (data.errors && data.errors.length) showError(data.errors.join(' / '));
+    onStateUpdate(data);
+  } catch (e) {
+    showError('設定の適用に失敗しました: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✓ 設定を適用';
+  }
 }
 
 // ─────────────────────────── 盤面初期化
@@ -537,6 +1193,7 @@ function drawArrow(svg, x1, y1, x2, y2, color, sw) {
 function renderArrows(candidates) {
   const svg = document.getElementById('arrow-overlay');
   svg.innerHTML = '';
+  if (editMode) return;
   if (!candidates || !candidates.length) return;
   if (!document.getElementById('show-arrows').checked) return;
   for (let i=Math.min(candidates.length, ARROW_COLORS.length)-1; i>=0; i--) {
@@ -551,55 +1208,47 @@ function renderArrows(candidates) {
 function renderBoard() {
   if (!state) return;
   document.querySelectorAll('.cell').forEach(c => { c.className='cell'; c.innerHTML=''; });
-  if (state.last_move && state.last_move.length>=4 && state.last_move[1]!=='*') {
-    const dSq = usiCoordToSq(state.last_move.slice(2,4));
-    const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
-    if (dc) dc.classList.add('last-move');
-    const fSq = usiCoordToSq(state.last_move.slice(0,2));
-    const fc = document.querySelector(`.cell[data-sq="${fSq}"]`);
-    if (fc) fc.classList.add('last-move-from');
-  }
-  state.pieces.forEach(p => {
-    const cell = document.querySelector(`.cell[data-sq="${p.sq}"]`);
-    if (!cell) return;
-    const span = document.createElement('span');
-    span.className = `piece ${p.color}${p.promoted?' promoted':''}`;
-    span.textContent = p.kanji;
-    cell.appendChild(span);
-  });
-  if (selectedSq !== null) {
-    const sel = document.querySelector(`.cell[data-sq="${selectedSq}"]`);
-    if (sel) sel.classList.add('selected');
-    legalDestsForSq(selectedSq, state.legal_moves).forEach((_,dSq) => {
-      const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
-      if (dc) dc.classList.add('legal-dest');
+  if (!editMode) {
+    if (state.last_move && state.last_move.length >= 4) {
+      const isDrop = state.last_move[1] === '*';
+      const toCoord = isDrop ? state.last_move.slice(2, 4) : state.last_move.slice(2, 4);
+      const toSq = usiCoordToSq(toCoord);
+      const dc = document.querySelector(`.cell[data-sq="${toSq}"]`);
+      if (dc) dc.classList.add(isDrop ? 'last-move-drop' : 'last-move');
+      if (!isDrop) {
+        const fSq = usiCoordToSq(state.last_move.slice(0, 2));
+        const fc = document.querySelector(`.cell[data-sq="${fSq}"]`);
+        if (fc) fc.classList.add('last-move-from');
+      }
+    }
+    state.pieces.forEach(p => {
+      const cell = document.querySelector(`.cell[data-sq="${p.sq}"]`);
+      if (!cell) return;
+      const span = document.createElement('span');
+      span.className = `piece ${p.color}${p.promoted?' promoted':''}`;
+      span.textContent = p.kanji;
+      cell.appendChild(span);
     });
-  }
-  if (selectedHand !== null) {
-    legalDestsForDrop(selectedHand, state.legal_moves).forEach(dSq => {
-      const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
-      if (dc) dc.classList.add('legal-dest');
-    });
-  }
-  renderHand('black', state.hands.black, false);
-  renderHand('white', state.hands.white, true);
-  const turnEl = document.getElementById('status-turn');
-  const infoEl = document.getElementById('status-info');
-  if (state.is_game_over) {
-    const w = state.winner;
-    turnEl.textContent = w==='black' ? '先手の勝ち！' : '後手の勝ち！';
-    turnEl.className = `status-turn ${w}`;
-    infoEl.textContent = `${state.move_count} 手で終局`;
-    showGameOver(w);
-    document.getElementById('btn-ai').disabled = true;
+    if (selectedSq !== null) {
+      const sel = document.querySelector(`.cell[data-sq="${selectedSq}"]`);
+      if (sel) sel.classList.add('selected');
+      legalDestsForSq(selectedSq, state.legal_moves).forEach((_,dSq) => {
+        const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
+        if (dc) dc.classList.add('legal-dest');
+      });
+    }
+    if (selectedHand !== null) {
+      legalDestsForDrop(selectedHand, state.legal_moves).forEach(dSq => {
+        const dc = document.querySelector(`.cell[data-sq="${dSq}"]`);
+        if (dc) dc.classList.add('legal-dest');
+      });
+    }
+    renderHand('black', state.hands.black, false);
+    renderHand('white', state.hands.white, true);
   } else {
-    const isBlack = state.turn==='black';
-    turnEl.textContent = isBlack ? '▲ 先手（あなた）の番' : '△ 後手（AI）の番';
-    turnEl.className = `status-turn ${state.turn}`;
-    infoEl.textContent = `${state.move_count} 手目`;
-    document.getElementById('btn-ai').disabled = !isBlack;
-    document.getElementById('gameover-banner').classList.remove('active');
+    renderEditBoard();
   }
+  renderStatus();
 }
 
 function renderHand(color, hand, isWhite) {
@@ -617,43 +1266,89 @@ function renderHand(color, hand, isWhite) {
   });
 }
 
-function showGameOver(winner) {
-  const banner = document.getElementById('gameover-banner');
-  banner.classList.add('active');
-  document.getElementById('gameover-title').textContent = winner==='black' ? '先手の勝ち 🎉' : '後手（AI）の勝ち';
-  document.getElementById('gameover-sub').textContent = `${state.move_count} 手で終局`;
+function renderStatus() {
+  if (!state) return;
+  const turnEl = document.getElementById('status-turn');
+  const infoEl = document.getElementById('status-info');
+  const isBlack = state.turn === 'black';
+  const mode = state.mode || 'human_vs_ai';
+
+  document.getElementById('black-turn-dot').classList.toggle('active-turn', isBlack && !state.is_game_over);
+  document.getElementById('white-turn-dot').classList.toggle('active-turn', !isBlack && !state.is_game_over);
+  document.getElementById('black-thinking').classList.remove('active');
+  document.getElementById('white-thinking').classList.remove('active');
+
+  if (state.is_game_over) {
+    const w = state.winner;
+    turnEl.textContent = w==='black' ? '▲ 先手の勝ち！' : '▽ 後手の勝ち！';
+    turnEl.className = `status-turn ${w}`;
+    infoEl.textContent = `${state.move_count} 手で終局`;
+    document.getElementById('gameover-banner').classList.add('active');
+    document.getElementById('gameover-title').textContent = w==='black' ? '先手の勝ち 🎉' : '後手の勝ち 🎉';
+    document.getElementById('gameover-sub').textContent = `${state.move_count} 手で終局`;
+    stopAutoPlay();
+  } else {
+    const sideLabel = isBlack ? '▲ 先手' : '▽ 後手';
+    turnEl.textContent = `${sideLabel} の番`;
+    turnEl.className = `status-turn ${state.turn}`;
+    infoEl.textContent = `${state.move_count} 手目`;
+    document.getElementById('gameover-banner').classList.remove('active');
+  }
+
+  renderPlayerBanners();
+  document.getElementById('mode-badge').textContent = MODE_LABELS[mode] || mode;
+
+  const isAIvsAI = mode === 'ai_vs_ai';
+  document.getElementById('autoplay-section').style.display = isAIvsAI ? 'block' : 'none';
+}
+
+function renderPlayerBanners() {
+  if (!state) return;
+  const bp = state.black_player || {};
+  const wp = state.white_player || {};
+  document.getElementById('black-icon').textContent = bp.icon || '👤';
+  document.getElementById('white-icon').textContent = wp.icon || '🤖';
+  document.getElementById('black-name').textContent = bp.display_name || '先手';
+  document.getElementById('white-name').textContent = wp.display_name || '後手';
+  document.getElementById('black-detail').textContent =
+    bp.type === 'internal' && bp.depth ? `d${bp.depth}` : '';
+  document.getElementById('white-detail').textContent =
+    wp.type === 'internal' && wp.depth ? `d${wp.depth}` : '';
 }
 
 // ─────────────────────────── 候補手パネル
 function renderCandidates(candidates) {
   const el = document.getElementById('candidates-list');
   if (!candidates || !candidates.length) {
-    el.innerHTML = '<span class="cand-empty">候補手なし（AIが手を指した後に更新されます）</span>';
+    el.innerHTML = '<span class="cand-empty">候補手なし（AIが考えた後に表示されます）</span>';
     renderArrows([]);
     return;
   }
-
-  // 最大絶対値（バー幅計算用）
   const absMax = Math.max(1, ...candidates.map(c => Math.abs(c.score)));
-
-  // グリッド HTML 生成
+  const candTurn = state && state.last_candidates_turn;
+  const isBlackCand = candTurn === 'black';
+  const candSideLabel = candTurn
+    ? (isBlackCand ? '▲ 先手' : '▽ 後手')
+    : '';
+  const candBadgeColor = isBlackCand ? '#4080d0' : '#c04040';
+  const candBadge = candSideLabel
+    ? `<span style="display:inline-block;background:${candBadgeColor};color:#fff;font-size:0.78em;padding:1px 7px;border-radius:10px;margin-right:6px;vertical-align:middle;">${candSideLabel}</span>`
+    : '';
   let html = `<div class="cand-grid">
     <div class="cand-grid-header">
-      <div>番手</div><div>指し手</div><div>形勢バー</div><div style="text-align:right">評価値</div><div>継続手（PV）</div>
+      <div>番手</div><div>${candBadge}指し手</div><div>形勢バー</div><div style="text-align:right">評価値</div><div>継続手（PV）</div>
     </div>`;
-
   candidates.forEach((c, i) => {
     const label = CAND_RANK_LABELS[i] || `${i+1}番手`;
     const dotColor = ARROW_COLORS[i] ? ARROW_COLORS[i].stroke : 'rgba(80,180,255,0.5)';
-    const pieces = state ? state.pieces : [];
-    const jaMove = usiToJa(c.move, pieces);
+    const jaMove = c.piece_kanji != null
+      ? usiToJaWithKanji(c.move, c.piece_kanji)
+      : usiToJa(c.move, state ? state.pieces : []);
     const scoreStr = (c.score > 0 ? '+' : '') + c.score;
     const scoreClass = c.score > 0 ? 'score-pos' : c.score < 0 ? 'score-neg' : 'score-zero';
     const barPct = Math.min(100, Math.abs(c.score) / absMax * 100).toFixed(1);
     const barCol = c.score >= 0 ? '#3060c0' : '#c03030';
-    // PV は盤面状態が変わるため座標表記のまま
     const pvStr = (c.pv || []).slice(1, 5).map(m => usiToJa(m)).join(' ');
-
     html += `<div class="cand-row-grid">
       <div class="cand-rank-cell" style="color:${dotColor}">${label}</div>
       <div class="cand-move-cell">${jaMove}</div>
@@ -662,7 +1357,6 @@ function renderCandidates(candidates) {
       <div class="cand-pv-cell">${pvStr || '—'}</div>
     </div>`;
   });
-
   html += '</div>';
   el.innerHTML = html;
   renderArrows(candidates);
@@ -675,53 +1369,28 @@ function initChart() {
   const ctx = document.getElementById('eval-chart').getContext('2d');
   evalChart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: '評価値（先手視点）',
-        data: [],
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-        tension: 0.3,
-        fill: false,
-        segment: {
-          borderColor: ctx => ctx.p0.parsed.y >= 0 ? '#80c8ff' : '#ff7070',
-        },
-        pointBackgroundColor: '#80c8ff',
-      }],
-    },
+    data: { labels: [], datasets: [{ label: '評価値（先手視点）', data: [],
+      borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, tension: 0.3, fill: false,
+      segment: { borderColor: ctx => ctx.p0.parsed.y >= 0 ? '#80c8ff' : '#ff7070' },
+      pointBackgroundColor: '#80c8ff',
+    }] },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 200 },
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 150 },
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#aaa', font: { size: 10 }, boxWidth: 10 } },
-        tooltip: {
-          backgroundColor: '#1a1a2e', borderColor: '#2a4060', borderWidth: 1,
-          titleColor: '#aaa', bodyColor: '#eee',
-          callbacks: {
-            label: ctx => {
-              const v = ctx.parsed.y;
-              return `評価値: ${v>0?'+':''}${v}`;
-            },
-          },
-        },
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => {
+          const v = ctx.raw; return `評価値: ${v > 0 ? '+' : ''}${v}`;
+        }}}
       },
       scales: {
-        x: {
-          title: { display: true, text: '手数', color: '#aaa', font: { size: 10 } },
-          ticks: { color: '#888', font: { size: 9 } },
-          grid: { color: '#1e2a3a' },
-        },
-        y: {
-          title: { display: true, text: 'cp', color: '#aaa', font: { size: 10 } },
-          ticks: { color: '#888', font: { size: 9 }, callback: v => v>0?`+${v}`:v },
-          grid: {
-            color: ctx => ctx.tick.value === 0 ? 'rgba(255,255,255,0.3)' : '#1e2a3a',
-            lineWidth: ctx => ctx.tick.value === 0 ? 1.5 : 1,
-          },
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#666', font: { size: 10 }, maxTicksLimit: 20 } },
+        y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#666', font: { size: 10 } },
+          afterDataLimits: scale => {
+            const margin = Math.max(200, Math.abs(scale.max - scale.min) * 0.1);
+            scale.max += margin; scale.min -= margin;
+          }
         },
       },
     },
@@ -730,139 +1399,614 @@ function initChart() {
 
 function updateChart(evalHistory) {
   if (!evalChart) return;
-  if (!evalHistory) evalHistory = [];
   evalChart.data.labels = evalHistory.map((_, i) => `${i+1}手`);
   evalChart.data.datasets[0].data = evalHistory;
-  evalChart.update('none');
+  evalChart.update();
+}
+
+// ─────────────────────────── 自動AI応手
+function maybeAutoAI(st) {
+  if (!st || st.is_game_over) return;
+  if (isAIMoving) return;
+  const mode = st.mode || '';
+  const isBlackTurn = st.turn === 'black';
+  const isAITurn =
+    (mode === 'human_vs_ai' && !isBlackTurn) ||
+    (mode === 'ai_vs_human' &&  isBlackTurn);
+  if (isAITurn) {
+    isAIMoving = true;
+    setTimeout(requestAIMove, 400);
+  }
+}
+
+// ─────────────────────────── 状態更新ハンドラ
+function onStateUpdate(newState) {
+  isProcessingMove = false;
+
+  if (state && newState.move_count !== state.move_count) {
+    selectedSq = null;
+    selectedHand = null;
+  }
+
+  state = newState;
+  if (!editMode) {
+    renderBoard();
+    updateChart(state.eval_history || []);
+    renderCandidates(state.last_candidates || []);
+  }
+
+  // AI vs AI オートプレイ
+  if (autoPlay && !state.is_game_over) {
+    const mode = state.mode || '';
+    if (mode === 'ai_vs_ai') scheduleAutoMove();
+  }
+
+  // 自動AI応手（human vs ai / ai vs human）
+  maybeAutoAI(state);
+}
+
+// ─────────────────────────── 着手処理
+function onCellClick(sq) {
+  if (editMode) { onEditCellClick(sq); return; }
+  if (!state || state.is_game_over) return;
+  if (isProcessingMove || isAIMoving) return;
+  const mode = state.mode || 'human_vs_ai';
+  const isBlackTurn = state.turn === 'black';
+
+  if (mode === 'human_vs_ai' && !isBlackTurn) return;
+  if (mode === 'ai_vs_human' && isBlackTurn) return;
+  if (mode === 'ai_vs_ai') return;
+
+  const piece = state.pieces.find(p => p.sq === sq);
+
+  if (selectedHand !== null) {
+    const dests = legalDestsForDrop(selectedHand, state.legal_moves);
+    if (dests.has(sq)) {
+      const mv = `${PIECE_LETTER[selectedHand]}*${sqToUsi(sq)}`;
+      submitMove(mv);
+      selectedHand = null;
+      return;
+    }
+    selectedHand = null;
+    selectedSq = null;
+    renderBoard();
+    return;
+  }
+
+  if (selectedSq !== null) {
+    const dests = legalDestsForSq(selectedSq, state.legal_moves);
+    if (dests.has(sq)) {
+      const opts = dests.get(sq);
+      if (opts.promote && opts.noPromote) {
+        pendingMove = opts;
+        document.getElementById('modal-overlay').classList.add('active');
+        return;
+      }
+      submitMove(opts.promote || opts.noPromote);
+      selectedSq = null;
+      return;
+    }
+    if (piece && piece.color === state.turn) {
+      selectedSq = sq;
+      renderBoard();
+      return;
+    }
+    selectedSq = null;
+    renderBoard();
+    return;
+  }
+
+  if (piece && piece.color === state.turn) {
+    selectedSq = sq;
+    renderBoard();
+  }
+}
+
+function onHandClick(name) {
+  if (!state || state.is_game_over) return;
+  if (isProcessingMove || isAIMoving) return;
+  const mode = state.mode || 'human_vs_ai';
+  if (mode === 'ai_vs_ai') return;
+  if (mode === 'ai_vs_human' && state.turn === 'black') return;
+  if (mode === 'human_vs_ai' && state.turn === 'white') return;
+
+  selectedSq = null;
+  selectedHand = selectedHand === name ? null : name;
+  renderBoard();
+}
+
+async function submitMove(mv) {
+  if (isProcessingMove) return;
+  isProcessingMove = true;
+  selectedSq = null; selectedHand = null;
+  renderBoard();
+  try {
+    const res = await fetch('/api/move', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ move: mv }),
+    });
+    if (!res.ok) {
+      isProcessingMove = false;
+      showError((await res.json()).detail || '着手エラー');
+      return;
+    }
+    // 状態は WebSocket で届く → onStateUpdate で isProcessingMove = false
+  } catch (e) {
+    isProcessingMove = false;
+    showError('通信エラー: ' + e.message);
+  }
+}
+
+// ─────────────────────────── AIに指させる（内部呼び出し）
+async function requestAIMove() {
+  if (!state || state.is_game_over) { isAIMoving = false; return; }
+  document.getElementById('thinking-overlay').classList.add('active');
+  const side = state.turn;
+  document.getElementById(`${side}-thinking`).classList.add('active');
+  const playerInfo = side === 'black' ? state.black_player : state.white_player;
+  const timeLimitMs = playerInfo && playerInfo.time_limit_ms ? playerInfo.time_limit_ms : null;
+  startThinkingTimer(timeLimitMs);
+  try {
+    const res = await fetch('/api/ai-move', { method: 'POST' });
+    if (!res.ok) {
+      showError((await res.json()).detail || 'AIエラー');
+      stopAutoPlay();
+    }
+  } catch (e) {
+    showError('通信エラー: ' + e.message);
+    stopAutoPlay();
+  } finally {
+    stopThinkingTimer();
+    document.getElementById('thinking-overlay').classList.remove('active');
+    document.getElementById('black-thinking').classList.remove('active');
+    document.getElementById('white-thinking').classList.remove('active');
+    isAIMoving = false;
+  }
+}
+
+// ─────────────────────────── オートプレイ（AI vs AI）
+function toggleAutoPlay() {
+  autoPlay ? stopAutoPlay() : startAutoPlay();
+}
+
+function startAutoPlay() {
+  if (!state || state.is_game_over) return;
+  autoPlay = true;
+  document.getElementById('btn-autoplay').textContent = '⏸ オートプレイ停止';
+  document.getElementById('btn-autoplay').classList.add('running');
+  scheduleAutoMove();
+}
+
+function stopAutoPlay() {
+  autoPlay = false;
+  if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+  document.getElementById('btn-autoplay').textContent = '▶ オートプレイ開始';
+  document.getElementById('btn-autoplay').classList.remove('running');
+  document.getElementById('thinking-overlay').classList.remove('active');
+  document.getElementById('black-thinking').classList.remove('active');
+  document.getElementById('white-thinking').classList.remove('active');
+}
+
+function scheduleAutoMove() {
+  if (!autoPlay || !state || state.is_game_over) { stopAutoPlay(); return; }
+  if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+  const delay = parseInt(document.getElementById('autoplay-speed-sel').value);
+  autoPlayTimer = setTimeout(executeAutoMove, delay);
+}
+
+async function executeAutoMove() {
+  if (!autoPlay || !state || state.is_game_over) { stopAutoPlay(); return; }
+  document.getElementById('thinking-overlay').classList.add('active');
+  const side = state.turn;
+  document.getElementById(`${side}-thinking`).classList.add('active');
+  const playerInfo = side === 'black' ? state.black_player : state.white_player;
+  const timeLimitMs = playerInfo && playerInfo.time_limit_ms ? playerInfo.time_limit_ms : null;
+  startThinkingTimer(timeLimitMs);
+  try {
+    const res = await fetch('/api/ai-move', { method: 'POST' });
+    if (!res.ok) {
+      showError((await res.json()).detail || 'AIエラー');
+      stopAutoPlay();
+    }
+  } catch (e) {
+    showError('通信エラー: ' + e.message);
+    stopAutoPlay();
+  } finally {
+    stopThinkingTimer();
+    document.getElementById('thinking-overlay').classList.remove('active');
+    document.getElementById('black-thinking').classList.remove('active');
+    document.getElementById('white-thinking').classList.remove('active');
+  }
+}
+
+// ─────────────────────────── 新しい対局（レガシー互換）
+async function startNewGame() {
+  showSetupModal();
+}
+
+// ─────────────────────────── 成りダイアログ
+document.getElementById('btn-promote').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('active');
+  if (pendingMove) { submitMove(pendingMove.promote); pendingMove = null; selectedSq = null; }
+});
+document.getElementById('btn-no-promote').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('active');
+  if (pendingMove) { submitMove(pendingMove.noPromote); pendingMove = null; selectedSq = null; }
+});
+
+// ─────────────────────────── 盤面編集モード
+const EDIT_PIECES = [
+  { kanji:'歩',  type:'pawn',       promoted:false },
+  { kanji:'香',  type:'lance',      promoted:false },
+  { kanji:'桂',  type:'knight',     promoted:false },
+  { kanji:'銀',  type:'silver',     promoted:false },
+  { kanji:'金',  type:'gold',       promoted:false },
+  { kanji:'角',  type:'bishop',     promoted:false },
+  { kanji:'飛',  type:'rook',       promoted:false },
+  { kanji:'玉',  type:'king',       promoted:false },
+  { kanji:'と',  type:'prom_pawn',  promoted:true  },
+  { kanji:'杏',  type:'prom_lance', promoted:true  },
+  { kanji:'圭',  type:'prom_knight',promoted:true  },
+  { kanji:'全',  type:'prom_silver',promoted:true  },
+  { kanji:'馬',  type:'prom_bishop',promoted:true  },
+  { kanji:'龍',  type:'prom_rook',  promoted:true  },
+];
+
+function buildPalette(containerId, color) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+
+  EDIT_PIECES.forEach(p => {
+    const div = document.createElement('div');
+    div.className = `palette-piece${color === 'white' ? ' white-pal' : ''}`;
+    div.dataset.type = p.type;
+    div.dataset.color = color;
+    div.title = `${color === 'black' ? '▲' : '▽'} ${p.kanji}`;
+    div.textContent = p.kanji;
+    div.style.color = p.promoted ? '#bb1111' : '#1a1a1a';
+    div.addEventListener('click', () => selectEditPiece(p, color, div));
+    el.appendChild(div);
+  });
+
+  // 消しゴム（黒パレットにだけ）
+  if (color === 'black') {
+    const sep = document.createElement('div'); sep.className = 'palette-sep'; el.appendChild(sep);
+    const eraser = document.createElement('div');
+    eraser.className = 'palette-piece eraser';
+    eraser.textContent = '✕';
+    eraser.title = '消す';
+    eraser.addEventListener('click', () => selectEditPiece(null, null, eraser));
+    el.appendChild(eraser);
+  }
+}
+
+function selectEditPiece(piece, color, el) {
+  // 以前の選択解除
+  document.querySelectorAll('.palette-piece.selected-piece').forEach(e => e.classList.remove('selected-piece'));
+  if (editSelectedPiece && editSelectedPiece.type === (piece ? piece.type : null)
+      && editSelectedPiece.color === color) {
+    editSelectedPiece = null;
+    return;
+  }
+  editSelectedPiece = piece ? { ...piece, color } : null;
+  el.classList.add('selected-piece');
+}
+
+function toggleEditMode() {
+  if (editMode) {
+    cancelEditMode();
+  } else {
+    enterEditMode();
+  }
+}
+
+function enterEditMode() {
+  if (!state) return;
+  editMode = true;
+  editOriginalState = state;
+  editTurnColor = state.turn;
+
+  // 現在の盤面状態をコピー
+  editBoardPieces = state.pieces.map(p => ({ ...p, type: p.type || p.piece }));
+  editBoardHands = {
+    black: { ...state.hands.black },
+    white: { ...state.hands.white },
+  };
+
+  document.getElementById('edit-panel').classList.add('active');
+  document.getElementById('bottom-panels').style.display = 'none';
+  document.getElementById('board').classList.add('edit-mode-board');
+  document.getElementById('btn-edit').textContent = '✕ 編集終了';
+
+  buildPalette('palette-black', 'black');
+  buildPalette('palette-white', 'white');
+  renderEditHands();
+  updateEditSFEN();
+  updateEditTurnBtn();
+  renderEditBoard();
+}
+
+function cancelEditMode() {
+  exitEditMode();
+  // 元の状態に戻す
+  if (editOriginalState) {
+    state = editOriginalState;
+    renderBoard();
+    updateChart(state.eval_history || []);
+    renderCandidates(state.last_candidates || []);
+  }
+}
+
+function exitEditMode() {
+  editMode = false;
+  editSelectedPiece = null;
+  document.querySelectorAll('.palette-piece.selected-piece').forEach(e => e.classList.remove('selected-piece'));
+  document.getElementById('edit-panel').classList.remove('active');
+  document.getElementById('bottom-panels').style.display = '';
+  document.getElementById('board').classList.remove('edit-mode-board');
+  document.getElementById('btn-edit').textContent = '✏ 盤面編集';
+}
+
+function renderEditBoard() {
+  document.querySelectorAll('.cell').forEach(c => { c.className='cell'; c.innerHTML=''; });
+  editBoardPieces.forEach(p => {
+    const cell = document.querySelector(`.cell[data-sq="${p.sq}"]`);
+    if (!cell) return;
+    const span = document.createElement('span');
+    span.className = `piece ${p.color}${p.promoted?' promoted':''}`;
+    span.textContent = p.kanji;
+    cell.appendChild(span);
+  });
+  renderStatus();
+}
+
+function onEditCellClick(sq) {
+  const existing = editBoardPieces.findIndex(p => p.sq === sq);
+
+  if (editSelectedPiece === null) {
+    // 消しゴムまたは無選択 → 消去 or サイクル
+    if (existing >= 0) {
+      editBoardPieces.splice(existing, 1);
+    }
+  } else {
+    // 駒を配置（同マスに既存があれば置き換え）
+    const pieceInfo = EDIT_PIECES.find(p => p.type === editSelectedPiece.type);
+    if (!pieceInfo) return;
+    const newPiece = {
+      sq,
+      file: 9 - (sq % 9),
+      rank: Math.floor(sq / 9) + 1,
+      type: editSelectedPiece.type,
+      piece: editSelectedPiece.type,
+      kanji: pieceInfo.kanji,
+      color: editSelectedPiece.color,
+      promoted: pieceInfo.promoted,
+    };
+    if (existing >= 0) {
+      editBoardPieces[existing] = newPiece;
+    } else {
+      editBoardPieces.push(newPiece);
+    }
+  }
+  updateEditSFEN();
+  renderEditBoard();
+}
+
+function toggleEditTurn() {
+  editTurnColor = editTurnColor === 'black' ? 'white' : 'black';
+  updateEditTurnBtn();
+  updateEditSFEN();
+}
+
+function updateEditTurnBtn() {
+  document.getElementById('edit-turn-btn').textContent =
+    editTurnColor === 'black' ? '▲ 先手' : '▽ 後手';
+}
+
+function renderEditHands() {
+  ['black', 'white'].forEach(color => {
+    const el = document.getElementById(`edit-${color}-hand`);
+    el.innerHTML = '';
+    HAND_ORDER.forEach(name => {
+      const div = document.createElement('div');
+      div.className = 'edit-hand-piece';
+      div.innerHTML = `
+        <span>${PIECE_KANJI[name]}</span>
+        <input class="edit-hand-count" type="number" min="0" max="18"
+          value="${editBoardHands[color][name] || 0}"
+          data-color="${color}" data-name="${name}"
+          onchange="onEditHandChange(this)">
+      `;
+      el.appendChild(div);
+    });
+  });
+}
+
+function onEditHandChange(input) {
+  const color = input.dataset.color;
+  const name  = input.dataset.name;
+  const val   = Math.max(0, parseInt(input.value) || 0);
+  editBoardHands[color][name] = val;
+  input.value = val;
+  updateEditSFEN();
+}
+
+// SFEN 生成
+function buildSFEN() {
+  // SFEN は各段を file9→file1 の順で記述（sq%9=0 が file9=SFEN左端）
+  const BASE_LETTER = {
+    pawn:'p', lance:'l', knight:'n', silver:'s', gold:'g',
+    bishop:'b', rook:'r', king:'k',
+    prom_pawn:'p', prom_lance:'l', prom_knight:'n',
+    prom_silver:'s', prom_bishop:'b', prom_rook:'r',
+  };
+  const IS_PROM = new Set(['prom_pawn','prom_lance','prom_knight','prom_silver','prom_bishop','prom_rook']);
+
+  let boardStr = '';
+  for (let rank = 0; rank < 9; rank++) {
+    let empty = 0;
+    for (let fi = 0; fi < 9; fi++) {       // fi=0→file9, fi=8→file1
+      const sq = rank * 9 + fi;
+      const p = editBoardPieces.find(x => x.sq === sq);
+      if (!p) { empty++; continue; }
+      if (empty > 0) { boardStr += empty; empty = 0; }
+      const ptype = p.type || p.piece || 'pawn';  // state.pieces は piece フィールドを使う
+      const base = BASE_LETTER[ptype] || 'p';
+      const letter = p.color === 'black' ? base.toUpperCase() : base;
+      boardStr += IS_PROM.has(ptype) ? `+${letter}` : letter;
+    }
+    if (empty > 0) boardStr += empty;
+    if (rank < 8) boardStr += '/';
+  }
+
+  const ORDER = ['rook','bishop','gold','silver','knight','lance','pawn'];
+  let handStr = '';
+  for (const color of ['black', 'white']) {
+    for (const name of ORDER) {
+      const cnt = editBoardHands[color][name] || 0;
+      if (cnt <= 0) continue;
+      const letter = PIECE_LETTER[name];
+      const s = color === 'black' ? letter.toUpperCase() : letter.toLowerCase();
+      handStr += (cnt > 1 ? cnt : '') + s;
+    }
+  }
+  if (!handStr) handStr = '-';
+
+  return `${boardStr} ${editTurnColor === 'black' ? 'b' : 'w'} ${handStr} 1`;
+}
+
+function updateEditSFEN() {
+  document.getElementById('edit-sfen').value = buildSFEN();
+}
+
+function loadSFENFromInput() {
+  const sfen = document.getElementById('edit-sfen').value.trim();
+  loadSFENString(sfen);
+}
+
+function copyCurrentSFEN() {
+  const sfen = buildSFEN();
+  navigator.clipboard.writeText(sfen).then(() => showError('SFENをコピーしました'))
+    .catch(() => showError('コピー失敗: ' + sfen));
+}
+
+function loadPreset(name) {
+  const sfens = {
+    startpos: 'lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1',
+    empty:    '9/9/9/9/9/9/9/9/9 b - 1',
+  };
+  if (sfens[name]) loadSFENString(sfens[name]);
+}
+
+function loadSFENString(sfen) {
+  // 簡易パース（python-shogi側に渡す前の確認用ではなく直接編集モードに反映）
+  try {
+    const parts = sfen.split(' ');
+    if (parts.length < 3) throw new Error('形式不正');
+    const boardPart = parts[0];
+    const turnPart  = parts[1];
+    const handPart  = parts[2];
+
+    const SFEN_TO_TYPE = {
+      'P':'pawn','L':'lance','N':'knight','S':'silver','G':'gold',
+      'B':'bishop','R':'rook','K':'king',
+    };
+
+    editBoardPieces = [];
+    const ranks = boardPart.split('/');
+    ranks.forEach((rankStr, ri) => {
+      let fi = 0;  // fi=0→file9 (SFEN左端), fi=8→file1
+      let promoted = false;
+      for (let ci = 0; ci < rankStr.length; ci++) {
+        const ch = rankStr[ci];
+        if (ch === '+') { promoted = true; continue; }
+        if (ch >= '1' && ch <= '9') { fi += parseInt(ch); promoted = false; continue; }
+        const upper = ch.toUpperCase();
+        const type0 = SFEN_TO_TYPE[upper];
+        if (!type0) { promoted = false; continue; }
+        const color = ch === upper ? 'black' : 'white';
+        const type  = promoted ? `prom_${type0.toLowerCase()}` : type0;
+        const pieceInfo = EDIT_PIECES.find(p => p.type === type);
+        const sq = ri * 9 + fi;
+        editBoardPieces.push({
+          sq, file: 9 - fi, rank: ri + 1,
+          type, piece: type,
+          kanji: pieceInfo ? pieceInfo.kanji : ch,
+          color, promoted,
+        });
+        fi++;
+        promoted = false;
+      }
+    });
+
+    editTurnColor = turnPart === 'b' ? 'black' : 'white';
+
+    // 持ち駒
+    editBoardHands = { black: {}, white: {} };
+    if (handPart !== '-') {
+      let cnt = 0;
+      for (const ch of handPart) {
+        if (ch >= '1' && ch <= '9') { cnt = cnt * 10 + parseInt(ch); continue; }
+        const n = cnt || 1; cnt = 0;
+        const upper = ch.toUpperCase();
+        const name = Object.keys(PIECE_LETTER).find(k => PIECE_LETTER[k] === upper);
+        if (!name) continue;
+        const color = ch === upper ? 'black' : 'white';
+        editBoardHands[color][name] = (editBoardHands[color][name] || 0) + n;
+      }
+    }
+
+    document.getElementById('edit-sfen').value = sfen;
+    renderEditHands();
+    updateEditTurnBtn();
+    renderEditBoard();
+  } catch (e) {
+    showError('SFEN の読み込みに失敗: ' + e.message);
+  }
+}
+
+async function applyEditPosition() {
+  const sfen = buildSFEN();
+  exitEditMode();
+  try {
+    const res = await fetch('/api/set-position', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ sfen }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showError(err.detail || '局面設定に失敗しました');
+      return;
+    }
+    // 状態は WebSocket で届く
+  } catch (e) {
+    showError('通信エラー: ' + e.message);
+  }
 }
 
 // ─────────────────────────── WebSocket
-let ws = null;
 function connectWS() {
-  const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  const ws = new WebSocket(`ws://${location.host}/ws`);
   ws.onmessage = e => {
-    const d = JSON.parse(e.data);
-    if (d.eval_history !== undefined) updateChart(d.eval_history);
-    if (d.last_candidates !== undefined) renderCandidates(d.last_candidates);
+    const data = JSON.parse(e.data);
+    onStateUpdate(data);
   };
   ws.onclose = () => setTimeout(connectWS, 2000);
   ws.onerror = () => ws.close();
 }
-setInterval(() => { if (ws && ws.readyState===WebSocket.OPEN) ws.send('ping'); }, 25000);
-
-document.getElementById('show-arrows').addEventListener('change', () => {
-  const cands = state && state.last_candidates ? state.last_candidates : [];
-  renderArrows(cands);
-});
-
-// ─────────────────────────── クリック
-function onCellClick(sq) {
-  if (!state || state.is_game_over || state.turn!=='black') return;
-  if (selectedHand !== null) {
-    const move = `${PIECE_LETTER[selectedHand]}*${sqToUsi(sq)}`;
-    clearSelection();
-    if (state.legal_moves.includes(move)) sendMove(move);
-    else renderBoard();
-    return;
-  }
-  if (selectedSq !== null) {
-    const dests = legalDestsForSq(selectedSq, state.legal_moves);
-    if (dests.has(sq)) {
-      const info = dests.get(sq);
-      clearSelection();
-      if (info.promote && info.noPromote) {
-        pendingMove = info;
-        document.getElementById('modal-overlay').classList.add('active');
-      } else {
-        sendMove(info.promote ?? info.noPromote);
-      }
-      return;
-    }
-    clearSelection();
-  }
-  const piece = state.pieces.find(p => p.sq===sq && p.color==='black');
-  if (piece) { selectedSq = sq; renderBoard(); }
-}
-
-function onHandClick(name) {
-  if (!state || state.is_game_over || state.turn!=='black') return;
-  if (selectedHand===name) { clearSelection(); renderBoard(); return; }
-  clearSelection(); selectedHand = name; renderBoard();
-}
-
-function clearSelection() { selectedSq = null; selectedHand = null; }
-
-// ─────────────────────────── 成りダイアログ
-document.getElementById('btn-promote').addEventListener('click', () => {
-  if (!pendingMove) return;
-  document.getElementById('modal-overlay').classList.remove('active');
-  const move = pendingMove.promote; pendingMove = null; sendMove(move);
-});
-document.getElementById('btn-no-promote').addEventListener('click', () => {
-  if (!pendingMove) return;
-  document.getElementById('modal-overlay').classList.remove('active');
-  const move = pendingMove.noPromote; pendingMove = null; sendMove(move);
-});
-
-// ─────────────────────────── サーバー通信
-async function sendMove(usiMove) {
-  try {
-    const res = await fetch('/api/move', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({move: usiMove}),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    state = await res.json();
-    renderBoard(); updateChart(state.eval_history);
-    if (!state.is_game_over && state.turn==='white') requestAiMove();
-  } catch (e) { console.error(e); alert('エラー: ' + e.message); }
-}
-
-async function requestAiMove() {
-  const depth = parseInt(document.getElementById('depth-sel').value);
-  document.getElementById('thinking-overlay').classList.add('active');
-  document.getElementById('btn-ai').disabled = true;
-  try {
-    const res = await fetch('/api/ai-move', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({depth}),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    state = await res.json();
-    renderBoard();
-    updateChart(state.eval_history);
-    renderCandidates(state.last_candidates);
-  } catch (e) { console.error(e); alert('AI エラー: ' + e.message); }
-  finally { document.getElementById('thinking-overlay').classList.remove('active'); }
-}
-
-document.getElementById('btn-ai').addEventListener('click', () => {
-  if (!state || state.turn!=='black') return;
-  requestAiMove();
-});
-
-document.getElementById('btn-new').addEventListener('click', async () => {
-  clearSelection(); pendingMove = null;
-  try {
-    const res = await fetch('/api/new-game', {method:'POST'});
-    state = await res.json();
-    document.getElementById('gameover-banner').classList.remove('active');
-    renderBoard(); updateChart([]); renderCandidates([]);
-  } catch (e) { console.error(e); }
-});
 
 // ─────────────────────────── 初期化
 (async () => {
-  initBoard(); initChart(); connectWS();
-  try {
-    const res = await fetch('/api/state');
-    state = await res.json();
-    updateChart(state.eval_history || []);
-    renderCandidates(state.last_candidates || []);
-  } catch { /* サーバー未起動 */ }
-  renderBoard();
+  initBoard();
+  initChart();
+  await loadEngines();
+  onPlayerTypeChange('black');
+  onPlayerTypeChange('white');
+  connectWS();
 })();
 </script>
+
 </body>
 </html>
