@@ -24,6 +24,7 @@ train = [
 ]
 commentary = [
     "anthropic",
+    "httpx",
 ]
 dev = [
     "pytest",

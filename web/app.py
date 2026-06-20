@@ -20,10 +20,12 @@ from core.board import PythonShogiBoard
 from core.move_gen import PythonShogiMoveGen
 from core.rules import RuleSet
 from eval.pst import PSTEvaluator
+from explain.api import router as explain_router
 from search.alphabeta import AlphaBetaSearcher
 from web.usi_engine import USIEngine
 
 app = FastAPI(title="Shogi AI")
+app.include_router(explain_router)
 
 # ------------------------------------------------------------------ エンジンカタログ
 
@@ -296,6 +298,7 @@ def _board_state() -> dict:
 
     return {
         "turn": "black" if _board.turn == shogi.BLACK else "white",
+        "sfen": _board.sfen(),
         "pieces": pieces,
         "hands": hands,
         "legal_moves": legal_moves,

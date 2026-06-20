@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>将棋AI</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -499,6 +500,102 @@ select:focus, input:focus { outline: 1px solid #4080c0; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── 解説パネル ── */
+.explain-panel {
+  width: 100%;
+  max-width: 776px;
+  background: #13192e;
+  border: 1px solid #1e3050;
+  border-radius: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+.explain-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #0f172a;
+  border-bottom: 1px solid #1e3050;
+}
+.explain-title {
+  font-size: 0.75em;
+  font-weight: bold;
+  color: #f0c070;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.explain-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.explain-controls select,
+.explain-controls input[type=text] {
+  width: auto;
+  font-size: 0.78em;
+  padding: 4px 7px;
+}
+.explain-controls input[type=text] { width: 130px; }
+.btn-explain {
+  background: #1a3a1a;
+  color: #80e080;
+  border: 1px solid #2a6030;
+  width: auto !important;
+  padding: 5px 14px !important;
+  font-size: 0.82em !important;
+  white-space: nowrap;
+}
+.btn-explain:hover { background: #224422; }
+.btn-explain:disabled { opacity: 0.4; cursor: not-allowed; }
+.explain-model-info {
+  font-size: 0.68em;
+  color: #556;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.explain-loading {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  font-size: 0.85em;
+  color: #80c0ff;
+}
+.explain-body {
+  padding: 14px 18px;
+  font-size: 0.85em;
+  line-height: 1.75;
+  color: #dde;
+  min-height: 60px;
+}
+.explain-body .explain-placeholder {
+  color: #445;
+  font-style: italic;
+}
+.explain-body h1, .explain-body h2, .explain-body h3 {
+  color: #f0c070;
+  margin: 10px 0 4px;
+  font-size: 1em;
+}
+.explain-body strong { color: #c0e0ff; }
+.explain-body ul, .explain-body ol {
+  padding-left: 1.4em;
+  margin: 4px 0;
+}
+.explain-body li { margin-bottom: 2px; }
+.explain-body p { margin: 4px 0; }
+.explain-body code {
+  background: #0a1020;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 0.92em;
+}
+
 /* ── エラーバー ── */
 .error-bar {
   display: none;
@@ -757,6 +854,33 @@ select:focus, input:focus { outline: 1px solid #4080c0; }
       盤面に矢印を表示（金色=最善手、青=次善手以降）
     </label>
     <div id="candidates-list"><span class="cand-empty">対局を開始してください</span></div>
+  </div>
+</div>
+
+<!-- 盤面解説パネル -->
+<div class="explain-panel" id="explain-panel">
+  <div class="explain-header">
+    <span class="explain-title">盤面解説 AI</span>
+    <div class="explain-controls">
+      <select id="explain-backend" title="LLMバックエンド">
+        <option value="ollama">Ollama（ローカル）</option>
+        <option value="claude">Claude API</option>
+      </select>
+      <input type="text" id="explain-model" placeholder="モデル名（省略可）" title="使用するモデル名。空欄は環境変数のデフォルトを使用">
+      <select id="explain-level" title="解説レベル">
+        <option value="beginner">初心者向け</option>
+        <option value="intermediate" selected>中級者向け</option>
+        <option value="advanced">上級者向け</option>
+      </select>
+      <button class="btn btn-explain" id="btn-explain" onclick="fetchExplanation()">解説を生成</button>
+      <span class="explain-model-info" id="explain-model-info"></span>
+    </div>
+  </div>
+  <div class="explain-loading" id="explain-loading">
+    <span class="spinner"></span>解説を生成中...
+  </div>
+  <div class="explain-body" id="explain-body">
+    <span class="explain-placeholder">「解説を生成」ボタンを押すと、現在の局面をAIが解説します</span>
   </div>
 </div>
 
@@ -1983,6 +2107,58 @@ async function applyEditPosition() {
     // 状態は WebSocket で届く
   } catch (e) {
     showError('通信エラー: ' + e.message);
+  }
+}
+
+// ─────────────────────────── 盤面解説AI
+async function fetchExplanation() {
+  if (!state || !state.sfen) {
+    showError('局面が読み込まれていません。対局を開始してください。');
+    return;
+  }
+
+  const backend  = document.getElementById('explain-backend').value;
+  const level    = document.getElementById('explain-level').value;
+  const modelVal = document.getElementById('explain-model').value.trim();
+  const sfen       = state.sfen;
+  const candidates = state.last_candidates || [];
+  const moveCount  = state.move_count || 0;
+
+  const loadingEl = document.getElementById('explain-loading');
+  const bodyEl    = document.getElementById('explain-body');
+  const btnEl     = document.getElementById('btn-explain');
+  const infoEl    = document.getElementById('explain-model-info');
+
+  loadingEl.style.display = 'flex';
+  bodyEl.style.display    = 'none';
+  btnEl.disabled          = true;
+  infoEl.textContent      = '';
+
+  try {
+    const reqBody = { sfen, candidates, move_count: moveCount, level, backend };
+    if (modelVal) reqBody.model = modelVal;
+
+    const res = await fetch('/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reqBody),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showError('解説エラー: ' + (err.detail || res.statusText));
+      return;
+    }
+
+    const data = await res.json();
+    bodyEl.innerHTML = marked.parse(data.commentary || '（解説なし）');
+    infoEl.textContent = `${data.backend_used} / ${data.model_used}`;
+  } catch (e) {
+    showError('解説の取得に失敗しました: ' + e.message);
+  } finally {
+    loadingEl.style.display = 'none';
+    bodyEl.style.display    = 'block';
+    btnEl.disabled          = false;
   }
 }
 
