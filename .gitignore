@@ -1,64 +1,16 @@
-# Python
 __pycache__/
 *.py[cod]
-*.pyo
 .venv/
-venv/
-env/
-.env
 *.egg-info/
-dist/
-build/
-*.egg
-.ruff_cache/
-.pyre/
-
-# macOS
+.pytest_cache/
 .DS_Store
-.AppleDouble
-.LSOverride
 
-# Models & data（大容量バイナリ・生成物）
-models/
-data/
-*.bin
-*.nnue
-*.onnx
-*.pt
-*.pth
-*.npz
-
-# 外部USIエンジン（ローカル配置）
+# 外部USIエンジン・評価関数（大容量・ローカル配置）
 engines/**
 !engines/
-!engines/.gitkeep
 !engines/README.md
 
-# 定跡ファイル（大容量）
-book/*.sfen
-book/*.db
-!book/.gitkeep
-
-# テスト・型チェック・カバレッジ
-.pytest_cache/
-.mypy_cache/
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-
-# ローカル実行・解析出力
-*.log
-*.tmp
-eval.png
-outputs/
-analysis_output/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# solve/ - 生成物
-solve/data/
+# 解析結果・個人の棋譜
+reports/
+kifu/*
+!kifu/sample.kif
