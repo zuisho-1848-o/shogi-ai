@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>棋譜レビュー</title>
+<style>
+:root{--bg:#f6f4ef;--panel:#fff;--ink:#222;--sub:#777;--line:#d9d4c7;--board:#f0d9a8;--grid:#7a6a48;--accent:#2b6cb0;--bad:#d64545;--warn:#e0912f;--q:#c9a227;--last:rgba(255,200,0,.45)}
+@media (prefers-color-scheme:dark){:root{--bg:#16181b;--panel:#1f2226;--ink:#e8e6e1;--sub:#9a9a9a;--line:#33373d;--board:#b99a5e;--grid:#4d3f22;--accent:#6aa9ec;--bad:#ef6b6b;--warn:#e8a54b;--q:#d8b73c;--last:rgba(255,210,60,.5)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"Hiragino Sans","Yu Gothic",sans-serif}
+header{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{margin:0;font-size:17px}
+header .sub{color:var(--sub);font-size:12px}
+main{display:grid;grid-template-columns:minmax(300px,520px) 1fr;gap:14px;padding:14px;max-width:1280px;margin:auto}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.card h2{margin:0 0 6px;font-size:13px;color:var(--sub);font-weight:600}
+#board{width:100%;height:auto;display:block;touch-action:manipulation}
+.hand{min-height:26px;font-size:15px;padding:2px 4px}
+.hand b{color:var(--sub);font-weight:500;font-size:12px;margin-right:6px}
+.ctrl{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--accent)}
+label{font-size:12px;color:var(--sub);cursor:pointer}
+#graph{width:100%;height:150px;display:block;cursor:pointer}
+.cand{display:grid;grid-template-columns:22px 82px 62px 1fr;gap:6px;align-items:start;padding:5px 4px;border-radius:6px;cursor:pointer}
+.cand:hover,.cand.sel{background:rgba(43,108,176,.12)}
+.cand .rk{color:var(--sub)}
+.cand .mv{font-weight:600}
+.pv{display:flex;flex-wrap:wrap;gap:2px 6px;font-size:12.5px}
+.pv span{cursor:pointer;padding:0 2px;border-radius:3px}
+.pv span:hover{background:rgba(43,108,176,.2)}
+.pv span.cur{background:var(--accent);color:#fff}
+.played{font-size:15px}
+.badge{display:inline-block;border-radius:5px;padding:0 6px;color:#fff;font-size:12px;margin-left:6px}
+.b1{background:var(--q)}.b2{background:var(--warn)}.b3{background:var(--bad)}
+ul.tags{margin:6px 0 0 18px;padding:0;color:var(--ink)}
+#list{max-height:340px;overflow:auto;font-size:13px}
+.row{display:grid;grid-template-columns:36px 1fr 64px 40px;gap:4px;padding:2px 6px;border-radius:5px;cursor:pointer}
+.row:hover{background:rgba(43,108,176,.12)}.row.cur{background:rgba(43,108,176,.25)}
+.row .n{color:var(--sub);text-align:right}
+.pos{color:#1a7f37}.neg{color:var(--bad)}
+.muted{color:var(--sub);font-size:12px}
+</style>
+</head>
+<body>
+<header><h1 id="title"></h1><div class="sub" id="sub"></div></header>
+<main>
+<section>
+  <div class="card">
+    <div class="hand" id="handW"></div>
+    <svg id="board" viewBox="0 0 468 468"></svg>
+    <div class="hand" id="handB"></div>
+    <div class="ctrl">
+      <button id="first">⏮</button><button id="prev">◀</button><span id="plyLabel" style="min-width:90px;text-align:center"></span><button id="next">▶</button><button id="last">⏭</button>
+      <label><input type="checkbox" id="arrows" checked> 矢印</label>
+      <button id="flip">盤面反転</button>
+      <span class="muted">← → キーで移動 / ↑ 悪手へ</span>
+    </div>
+  </div>
+  <div class="card"><h2>形勢の推移（先手勝率・クリックで移動）</h2><svg id="graph" preserveAspectRatio="none"></svg></div>
+</section>
+<section>
+  <div class="card"><h2>この局面から指した手</h2><div id="played"></div></div>
+  <div class="card"><h2>エンジンの候補手（評価値は先手視点・クリックで読み筋、読み筋の手をクリックで局面表示）</h2><div id="cands"></div></div>
+  <div class="card"><h2>指し手一覧 <label style="margin-left:8px"><input type="checkbox" id="onlyBad"> 振り返る手のみ</label> <label style="margin-left:8px"><input type="checkbox" id="onlyMe" checked> 自分の手のみ</label></h2><div id="list"></div></div>
+</section>
+</main>
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+const D=JSON.parse(document.getElementById('data').textContent);
+const P=D.plies, N=P.length-1;
+const KAN="〇一二三四五六七八九", ZEN="０１２３４５６７８９";
+const NAME={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉","+P":"と","+L":"杏","+N":"圭","+S":"全","+B":"馬","+R":"龍"};
+const HAND=["R","B","G","S","N","L","P"];
+let ply=0, flip=false, sel=null, step=0; // sel=候補index, step=読み筋の進み
+const focusSide = D.focus.startsWith("先手")?"先手":D.focus.startsWith("後手")?"後手":null;
+const $=id=>document.getElementById(id);
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e}
+
+function parseSfen(s){
+  const [b,t,h]=s.split(" ");const cells=[];
+  for(const row of b.split("/")){let i=0;while(i<row.length){const c=row[i];if(/\d/.test(c)){for(let k=0;k<+c;k++)cells.push(null);i++}else{let p=c;if(c==="+"){p="+"+row[i+1];i++}i++;const black=p.replace("+","")===p.replace("+","").toUpperCase();cells.push({k:p.toUpperCase(),black})}}}
+  const hands={b:{},w:{}};if(h&&h!=="-"){let n="";for(const c of h){if(/\d/.test(c))n+=c;else{const cnt=n?+n:1;n="";(c===c.toUpperCase()?hands.b:hands.w)[c.toUpperCase()]=cnt}}}
+  return {cells,turn:t,hands};
+}
+const sq=u=>({x:9-+u[0],y:u.charCodeAt(1)-97}); // 盤面上の列(左=9筋)・行
+const fmtCp=(cp,mate)=>mate!=null?(mate>0?"先手":"後手")+Math.abs(mate)+"手詰":(cp>=29000||cp<=-29000)?"詰み":(cp>0?"+":"")+cp;
+const cls=cp=>cp>0?"pos":cp<0?"neg":"";
+
+function curState(){
+  const e=P[ply];
+  if(sel!=null&&step>0){const s=e.cands[sel].steps[step-1];return {sfen:s.sfen,last:s.usi}}
+  return {sfen:e.sfen,last:e.last};
+}
+function cellXY(x,y){ // 反転対応
+  return flip?{x:(8-x)*52+26+0,y:(8-y)*52+26}:{x:x*52+26,y:y*52+26}
+}
+function drawBoard(){
+  const svg=$("board");svg.innerHTML="";
+  const st=curState(), pos=parseSfen(st.sfen), e=P[ply];
+  const M=0; // viewBox 468 = 9*52
+  el("rect",{x:0,y:0,width:468,height:468,fill:"var(--board)"},svg);
+  // 直前の手
+  if(st.last){const t=sq(st.last.slice(2,4));const c=cellXY(t.x,t.y);el("rect",{x:c.x-26,y:c.y-26,width:52,height:52,fill:"var(--last)"},svg);
+    if(st.last[1]!=="*"){const f=sq(st.last.slice(0,2));const c2=cellXY(f.x,f.y);el("rect",{x:c2.x-26,y:c2.y-26,width:52,height:52,fill:"var(--last)",opacity:.5},svg)}}
+  for(let i=0;i<=9;i++){el("line",{x1:i*52,y1:0,x2:i*52,y2:468,stroke:"var(--grid)","stroke-width":i%9?1:2},svg);el("line",{x1:0,y1:i*52,x2:468,y2:i*52,stroke:"var(--grid)","stroke-width":i%9?1:2},svg)}
+  [[3,3],[6,3],[3,6],[6,6]].forEach(([a,b])=>el("circle",{cx:a*52,cy:b*52,r:3,fill:"var(--grid)"},svg));
+  pos.cells.forEach((c,i)=>{if(!c)return;const x=i%9,y=Math.floor(i/9),p=cellXY(x,y);
+    const prom=c.k.startsWith("+");const white=!c.black;const rot=white!==flip; // 後手の駒は逆向き(反転時は逆)
+    const t=el("text",{x:p.x,y:p.y+10,"text-anchor":"middle","font-size":prom&&NAME[c.k].length>1?24:30,"font-weight":600,fill:prom?"var(--bad)":"var(--ink)",transform:rot?`rotate(180 ${p.x} ${p.y})`:""},svg,NAME[c.k]);});
+  // 筋・段ラベル
+  for(let i=0;i<9;i++){const fx=flip?8-i:i;el("text",{x:i*52+26,y:-2,"text-anchor":"middle","font-size":0},svg)}
+  // 矢印
+  if($("arrows").checked&&!(sel!=null&&step>0)){
+    const arrow=(usi,color,w,op)=>{const to=sq(usi.slice(2,4));const tc=cellXY(to.x,to.y);let fc;
+      if(usi[1]==="*"){fc={x:tc.x+(flip?-1:1)*0,y:tc.y+(flip?-1:1)*0};el("circle",{cx:tc.x,cy:tc.y,r:22,fill:"none",stroke:color,"stroke-width":w,opacity:op},svg);return}
+      const fr=sq(usi.slice(0,2));fc=cellXY(fr.x,fr.y);
+      const dx=tc.x-fc.x,dy=tc.y-fc.y,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,hx=tc.x-ux*10,hy=tc.y-uy*10;
+      el("line",{x1:fc.x,y1:fc.y,x2:hx,y2:hy,stroke:color,"stroke-width":w,"stroke-linecap":"round",opacity:op},svg);
+      el("polygon",{points:`${tc.x-ux*4},${tc.y-uy*4} ${hx-uy*9},${hy+ux*9} ${hx+uy*9},${hy-ux*9}`,fill:color,opacity:op},svg)};
+    const colors=["#2b6cb0","#2f9e6e","#9a7bd1"];
+    e.cands.forEach((c,i)=>{if(c.steps[0])arrow(c.steps[0].usi,colors[i%3],i===0?7:4,i===0?.8:.5)});
+    if(e.move)arrow(e.move.usi,"#d64545",3,.9);
+  }
+  // 筋・段の数字
+  const lab=el("g",{},svg);
+  for(let i=0;i<9;i++){const n=flip?i+1:9-i;const rk=flip?8-i:i;
+    el("text",{x:i*52+26,y:464,"text-anchor":"middle","font-size":10,fill:"var(--grid)"},svg,ZEN[n]);
+    el("text",{x:462,y:i*52+30,"text-anchor":"end","font-size":10,fill:"var(--grid)"},svg,KAN[rk+1])}
+  // 持ち駒
+  const hs=(h)=>HAND.filter(k=>h[k]).map(k=>NAME[k]+(h[k]>1?"×"+h[k]:"")).join(" ")||"なし";
+  const top=flip?"b":"w",bot=flip?"w":"b",nm=k=>k==="b"?"先手":"後手";
+  $("handW").innerHTML=`<b>☖ ${nm(top)}の持駒</b>${hs(pos.hands[top])}`;
+  $("handB").innerHTML=`<b>☗ ${nm(bot)}の持駒</b>${hs(pos.hands[bot])}`;
+}
+
+function drawGraph(){
+  const svg=$("graph"),W=1000,H=150;svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML="";
+  const x=i=>i/Math.max(1,N)*W, y=w=>H-w*H;
+  el("rect",{x:0,y:0,width:W,height:H,fill:"none"},svg);
+  el("line",{x1:0,y1:y(.5),x2:W,y2:y(.5),stroke:"var(--line)","stroke-width":2},svg);
+  [.25,.75].forEach(v=>el("line",{x1:0,y1:y(v),x2:W,y2:y(v),stroke:"var(--line)","stroke-dasharray":"4 6"},svg));
+  const pts=P.map((p,i)=>`${x(i)},${y(p.wr)}`).join(" ");
+  el("polygon",{points:`0,${H} ${pts} ${W},${H}`,fill:"rgba(43,108,176,.15)"},svg);
+  el("polyline",{points:pts,fill:"none",stroke:"var(--accent)","stroke-width":2.5,"vector-effect":"non-scaling-stroke"},svg);
+  // 悪手マーカー
+  P.forEach((p,i)=>{if(!p.move||!p.move.label)return;const c=p.move.mark==="??"?"var(--bad)":p.move.mark==="?"?"var(--warn)":"var(--q)";
+    const mine=!focusSide||p.turn===focusSide;
+    el("circle",{cx:x(i+1<=N?i+1:i),cy:y(P[Math.min(N,i+1)].wr),r:mine?7:4,fill:c,opacity:mine?1:.45,stroke:"var(--panel)","stroke-width":1.5,"vector-effect":"non-scaling-stroke"},svg)});
+  // 現在位置
+  el("line",{id:"cursor",x1:x(ply),y1:0,x2:x(ply),y2:H,stroke:"var(--ink)","stroke-width":1.5,"vector-effect":"non-scaling-stroke"},svg);
+  svg.onclick=ev=>{const r=svg.getBoundingClientRect();go(Math.round((ev.clientX-r.left)/r.width*N))};
+}
+
+function drawSide(){
+  const e=P[ply];
+  $("plyLabel").textContent=`${ply} / ${N}手`;
+  // 指した手
+  let h="";
+  if(e.move){const m=e.move;
+    const bcls=m.mark==="??"?"b3":m.mark==="?"?"b2":"b1";
+    h+=`<div class="played"><b>${ply+1}手目 ${m.k}</b>${m.label?`<span class="badge ${bcls}">${m.label} 勝率-${Math.round(m.loss*100)}%</span>`:""}</div>`;
+    h+=`<div class="muted">指した後の評価 <span class="${cls(m.cp_after)}">${fmtCp(m.cp_after)}</span>（先手視点）${m.rank?` ／ 候補${m.rank}位`:" ／ 候補圏外"}${m.sec!=null?` ／ ${m.sec}秒`:""}</div>`;
+    if(m.label)h+=`<div style="margin-top:4px">最善手: <b>${m.best}</b></div>`;
+    if(m.tags&&m.tags.length)h+=`<ul class="tags">${m.tags.map(t=>`<li>${t}</li>`).join("")}</ul>`;
+    if(m.comment)h+=`<div class="muted">棋譜コメント: ${m.comment}</div>`;
+  }else h=`<div class="muted">終局（${D.end||"—"}）</div>`;
+  $("played").innerHTML=h;
+  // 候補手
+  let c="";
+  e.cands.forEach((cd,i)=>{
+    const first=cd.steps[0]?cd.steps[0].k:"—";
+    const pv=cd.steps.map((s,j)=>`<span data-c="${i}" data-s="${j+1}" class="${sel===i&&step===j+1?'cur':''}">${s.k}</span>`).join("");
+    c+=`<div class="cand ${sel===i?'sel':''}" data-c="${i}"><span class="rk">${i+1}</span><span class="mv">${first}</span><span class="${cls(cd.cp)}">${fmtCp(cd.cp,cd.mate)}</span><div class="pv">${pv}</div></div>`});
+  $("cands").innerHTML=c||'<div class="muted">候補なし</div>';
+  document.querySelectorAll(".cand").forEach(d=>d.onclick=ev=>{const s=ev.target.closest("span[data-s]");sel=+d.dataset.c;step=s?+s.dataset.s:0;redraw()});
+  // 一覧の現在行
+  document.querySelectorAll(".row").forEach(r=>r.classList.toggle("cur",+r.dataset.p===ply));
+  const cur=document.querySelector(".row.cur");if(cur)cur.scrollIntoView({block:"nearest"});
+}
+
+function buildList(){
+  const only=$("onlyBad").checked, me=$("onlyMe").checked&&focusSide;
+  let h="";
+  P.forEach((p,i)=>{if(!p.move)return;if(only&&!p.move.label)return;if(me&&p.turn!==focusSide)return;
+    const m=p.move,col=m.mark==="??"?"var(--bad)":m.mark==="?"?"var(--warn)":m.mark?"var(--q)":"inherit";
+    h+=`<div class="row" data-p="${i}"><span class="n">${i+1}</span><span>${m.k} <span style="color:${col};font-weight:700">${m.mark||""}</span></span><span class="${cls(m.cp_after)}">${fmtCp(m.cp_after)}</span><span class="muted">${m.label?'-'+Math.round(m.loss*100)+'%':''}</span></div>`});
+  $("list").innerHTML=h;
+  document.querySelectorAll(".row").forEach(r=>r.onclick=()=>go(+r.dataset.p));
+}
+
+function redraw(){drawBoard();drawGraph();drawSide()}
+function go(i){ply=Math.max(0,Math.min(N,i));sel=null;step=0;redraw()}
+function nextBad(dir){for(let i=ply+dir;i>=0&&i<=N;i+=dir){const m=P[i].move;if(m&&m.label&&(!focusSide||P[i].turn===focusSide)){go(i);return}}}
+$("first").onclick=()=>go(0);$("prev").onclick=()=>go(ply-1);$("next").onclick=()=>go(ply+1);$("last").onclick=()=>go(N);
+$("flip").onclick=()=>{flip=!flip;redraw()};$("arrows").onchange=redraw;
+$("onlyBad").onchange=()=>{buildList();drawSide()};$("onlyMe").onchange=()=>{buildList();drawSide()};
+document.addEventListener("keydown",e=>{if(e.key==="ArrowLeft")go(ply-1);else if(e.key==="ArrowRight")go(ply+1);else if(e.key==="ArrowUp"){e.preventDefault();nextBad(-1)}else if(e.key==="ArrowDown"){e.preventDefault();nextBad(1)}});
+document.title=`${D.black} vs ${D.white} - 棋譜レビュー`;
+$("title").textContent=`${D.black}（先手）vs ${D.white}（後手）`;
+$("sub").textContent=[D.headers["開始日時"]||D.headers["対局日"]||"",`${N}手`,D.end,`振り返り対象: ${D.focus}`,D.engine,D.limit].filter(Boolean).join(" ／ ");
+if(focusSide==="後手")flip=true;
+buildList();
+const first=P.findIndex(p=>p.move&&p.move.label&&(!focusSide||p.turn===focusSide));
+go(first>=0?first:0);
+</script>
+</body>
+</html>

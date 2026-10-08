@@ -13,11 +13,17 @@
 
 ```bash
 .venv/bin/python -m kifu_review kifu/対局.kif --me 自分の名前 --fv-scale 24
-# → reports/対局/report.md / report.json
+# → reports/対局/report.md / report.json / viewer.html（完了後にブラウザで自動表示）
 ```
 
+### ブラウザビューア（viewer.html）
+
+評価値グラフ（悪手は色付きの点、クリックで移動）・盤面（直前の手/最善手/実戦手の矢印）・各局面のエンジン候補手と読み筋・指し手一覧。
+読み筋の手をクリックするとその局面を盤面に表示。キー操作: `←→` 1手移動 / `↑↓` 前後の悪手へ。オフライン動作・単一ファイルなので共有も可。
+既存の解析結果を開き直すだけなら `--no-open` なしで同じコマンドを再実行（キャッシュで数秒）。
+
 主なオプション: `--movetime 1500`(ms/局面) `--depth N` `--top 8`(振り返る手数) `--side black|white`
-`--me` は KIF の先手/後手名に部分一致（環境変数 `KIFU_REVIEW_ME` でも可）。結果は `analysis_cache.json` に保存され、再実行は高速。
+`--no-open` でブラウザを開かない。`--me` は KIF の先手/後手名に部分一致（環境変数 `KIFU_REVIEW_ME` でも可）。結果は `analysis_cache.json` に保存され、再実行は高速。
 
 ## 理由まで解説してもらう
 

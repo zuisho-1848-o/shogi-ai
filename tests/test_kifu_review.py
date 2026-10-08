@@ -56,3 +56,21 @@ def test_review_flags_blunder():
     rs = review_game(g, pos)
     assert rs[0].label == "大悪手" and rs[0].cp_after == -1500
     assert rs[0].tags  # 理由タグが付く
+
+
+def test_viewer_data_and_html():
+    from kifu_review.viewer import build_html, build_view_data
+
+    g = parse_kif(to_kif(OPENING[:2]))
+    pos = [
+        PosAnalysis(0, [Line(1, 0, None, 10, ["2g2f", "8c8d"])]),
+        PosAnalysis(1, [Line(1, 1500, None, 10, ["3c3d"])]),
+        PosAnalysis(2, [Line(1, 0, None, 10, ["2g2f"])]),
+    ]
+    rs = review_game(g, pos)
+    data = build_view_data(g, pos, rs, {"focus": "両者"})
+    assert len(data["plies"]) == 3
+    assert data["plies"][0]["cands"][0]["steps"][1]["k"] == "△８四歩"
+    assert data["plies"][1]["cp"] < 0  # 後手番の+1500 → 先手視点は負
+    html = build_html(data)
+    assert "/*__DATA__*/" not in html and "△８四歩" in html

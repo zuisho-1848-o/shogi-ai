@@ -11,6 +11,7 @@ from .analyze import analyze_game, cache_key, eval_id_of
 from .engine import UsiEngine
 from .kif import KifError, load_kif
 from .report import build_json, build_markdown
+from .viewer import build_html, build_view_data
 from .review import pick_key_moves, review_game
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--hash", type=int, default=1024, help="USI_Hash MB")
     ap.add_argument("--top", type=int, default=8, help="振り返る手の最大数（既定8）")
     ap.add_argument("--out", default=str(ROOT / "reports"), help="出力先ディレクトリ")
+    ap.add_argument("--no-open", action="store_true", help="完了後にブラウザでビューアを開かない")
     ap.add_argument("--fv-scale", type=int, help="評価関数のFV_SCALE（水匠5は24）")
     args = ap.parse_args(argv)
 
@@ -81,5 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     }  # fmt: skip
     (out_dir / "report.md").write_text(build_markdown(game, reviews, keys, pos, meta), encoding="utf-8")
     (out_dir / "report.json").write_text(build_json(game, reviews, keys, meta), encoding="utf-8")
-    print(f"レポート: {out_dir / 'report.md'}")
+    html_path = out_dir / "viewer.html"
+    html_path.write_text(build_html(build_view_data(game, pos, reviews, meta)), encoding="utf-8")
+    print(f"レポート: {out_dir / 'report.md'}\nビューア: {html_path}")
+    if not args.no_open:
+        import webbrowser
+
+        webbrowser.open(html_path.as_uri())
     return 0
