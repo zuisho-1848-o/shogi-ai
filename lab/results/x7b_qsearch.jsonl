@@ -1,0 +1,10 @@
+{"kind": "material", "qdepth": 4, "n": 2000, "agree_nnue": 0.1795, "evals_per_pos": 305, "sec": 26}
+{"kind": "P", "qdepth": 4, "n": 2000, "agree_nnue": 0.1405, "evals_per_pos": 324, "sec": 28}
+{"kind": "KP", "qdepth": 4, "n": 2000, "agree_nnue": 0.0995, "evals_per_pos": 303, "sec": 29}
+{"kind": "KP+T", "qdepth": 4, "n": 2000, "agree_nnue": 0.1045, "evals_per_pos": 281, "sec": 29}
+{"kind": "GBDT", "qdepth": 4, "n": 2000, "agree_nnue": 0.115, "evals_per_pos": 348, "sec": 743}
+{"kind": "material", "qdepth": 4, "n": 2000, "agree_nnue": 0.1945, "agree_capture": 0.5822, "agree_quiet": 0.0858, "evals_per_pos": 322, "sec": 32}
+{"kind": "M+P", "qdepth": 4, "n": 2000, "agree_nnue": 0.1415, "agree_capture": 0.3699, "agree_quiet": 0.0775, "evals_per_pos": 308, "sec": 32}
+{"kind": "M+KP", "qdepth": 4, "n": 2000, "agree_nnue": 0.1205, "agree_capture": 0.3402, "agree_quiet": 0.0589, "evals_per_pos": 296, "sec": 34}
+{"kind": "M+KP+T", "qdepth": 4, "n": 2000, "agree_nnue": 0.127, "agree_capture": 0.347, "agree_quiet": 0.0653, "evals_per_pos": 284, "sec": 35}
+{"kind": "M+T", "qdepth": 4, "n": 2000, "agree_nnue": 0.135, "agree_capture": 0.3265, "agree_quiet": 0.0813, "evals_per_pos": 350, "sec": 36}

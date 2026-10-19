@@ -174,6 +174,8 @@ class Feats:
         return np.frombuffer(self.dense, dtype=np.float32).reshape(self.n, -1)
 
     def X(self, kind):
+        if kind.startswith("M+"):  # 駒数（盤全体で共通の駒の価値）を必ず足す版
+            return sp.hstack([sp.csr_matrix(self.D()[:, :42] / 4), self.X(kind[2:])]).tocsr()
         if kind == "material":
             return sp.csr_matrix(self.D()[:, :42])
         if kind == "P":
