@@ -53,6 +53,9 @@ POP = np.array([bin(i).count("1") for i in range(1 << 12)], dtype=np.int64)
 
 BUCKETS = 10  # 各特徴量は 0..9 にクリップ
 NAMES = ["my_safe", "op_safe", "my_try_d", "my_try_n", "op_try_d", "op_try_n", "my_press", "op_press", "my_hang", "op_hang", "my_mob", "op_mob", "check"]
+# X9 の仮説（長期の勝ちは「ライオンの活動力」で駒損を補う）を試すための追加特徴量。LION=1 のときだけ使う
+LION_NAMES = ["my_fwd", "op_fwd", "my_center", "op_center", "mat_x_myrow", "mat_x_oprow"]
+LION = int(os.environ.get("X5_LION", "0"))
 
 
 def threat_values(keys):
@@ -93,7 +96,20 @@ def threat_values(keys):
     v["op_mob"] = sum(POP[np.where(theirs[:, s], att[:, s] & ~occ_op & 0xFFF, 0)] for s in range(12)) + empty * (ho > 0).sum(axis=1) // 3
     v["check"] = ((op_att >> my_l) & 1).astype(np.int64)
     rows = (my_l // 3) * 4 + op_l // 3  # 16 通りの局面の型
-    return {k: np.clip(x, 0, BUCKETS - 1) for k, x in v.items()}, rows
+    if LION:
+        # 前方（相手陣の方向）へ安全に動けるマスの数
+        my_fwd_mask = (1 << (3 * (my_l // 3))) - 1
+        op_fwd_mask = 0xFFF ^ ((1 << (3 * (op_l // 3 + 1))) - 1)
+        v["my_fwd"] = POP[my_n & ~occ_me & ~op_att & my_fwd_mask & 0xFFF]
+        v["op_fwd"] = POP[op_n & ~occ_op & ~my_att & op_fwd_mask & 0xFFF]
+        v["my_center"] = (my_l % 3 == 1).astype(np.int64) + (my_l // 3 <= 1)
+        v["op_center"] = (op_l % 3 == 1).astype(np.int64) + (op_l // 3 >= 2)
+        mine_n = mine.sum(1) - 1 + hm.sum(1)
+        theirs_n = theirs.sum(1) - 1 + ho.sum(1)
+        mat = np.clip(mine_n - theirs_n + 2, 0, 4)  # 駒の枚数の差 -2..+2
+        v["mat_x_myrow"] = mat * 4 + my_l // 3
+        v["mat_x_oprow"] = mat * 4 + op_l // 3
+    return {k: np.clip(x, 0, (BUCKETS if not k.startswith("mat_x") else 20) - 1) for k, x in v.items()}, rows
 
 
 def threat_sparse(keys):
@@ -103,6 +119,11 @@ def threat_sparse(keys):
     for i, name in enumerate(NAMES):
         cols.append(i * BUCKETS + v[name])  # 単独
         cols.append(len(NAMES) * BUCKETS + (rows * len(NAMES) + i) * BUCKETS + v[name])  # 局面の型 × 特徴
+    extra = 0
+    if LION:
+        for i, name in enumerate(LION_NAMES):
+            cols.append(len(NAMES) * BUCKETS * 17 + 400 + i * 20 + v[name])
+        extra = len(LION_NAMES) * 20
     # 主要な組み合わせ（攻めの圧力 × 守りの安全度、トライの脅威の打ち合い）
     base = len(NAMES) * BUCKETS * 17
     cols.append(base + v["my_press"] * BUCKETS + v["op_safe"])
@@ -110,7 +131,7 @@ def threat_sparse(keys):
     cols.append(base + 200 + v["my_try_n"] * BUCKETS + v["op_try_n"])
     cols.append(base + 300 + v["my_hang"] * BUCKETS + v["op_hang"])
     c = np.stack(cols, axis=1)
-    dim = base + 400
+    dim = base + 400 + extra
     r = np.repeat(np.arange(n), c.shape[1])
     return sp.csr_matrix((np.ones(c.size, dtype=np.float32), (r, c.ravel())), shape=(n, dim))
 

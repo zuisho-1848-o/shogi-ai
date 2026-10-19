@@ -47,6 +47,7 @@ int main(int argc, char **argv) {
             u64 ck = unmix(ch[k]); uint8_t cv = vals[x];
             fwrite(&ck, 8, 1, stdout); fwrite(&cv, 1, 1, stdout); fwrite(&mvinfo[k], 2, 1, stdout);
         }
+        if (expand_mode) fflush(stdout);  // 対話的に使えるよう1局面ごとに書き出す
     }
     return 0;
 }
