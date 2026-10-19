@@ -163,7 +163,7 @@ class Model:
             self.m = HistGradientBoostingClassifier(max_iter=300, max_leaf_nodes=63)
             self.m.fit(self.feats(keys)[rows], y, sample_weight=w)
         elif self.kind == "MLP":
-            self.m = MLPClassifier(hidden_layer_sizes=(256, 32), max_iter=20, batch_size=1024)
+            self.m = MLPClassifier(hidden_layer_sizes=(256, 32), max_iter=int(os.environ.get("X1_MLP_ITER", "20")), batch_size=1024)
             self.m.fit(self.feats(keys)[rows], y)  # MLPは重み非対応: 引分は両ラベル1回ずつ
         else:
             self.m = SGDClassifier(loss="log_loss", alpha=1e-7, learning_rate="adaptive", eta0=0.05)

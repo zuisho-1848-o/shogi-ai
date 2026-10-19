@@ -167,15 +167,16 @@ def main():
     ap.add_argument("--test", type=int, default=300000)
     ap.add_argument("--kinds", default="T,KPP+T,GBDT+T,MLP+T")
     ap.add_argument("--out", default=os.path.join(HERE, "../results/x5_threats.jsonl"))
+    ap.add_argument("--seed", type=int, default=1, help="学習局面を抜き出す乱数（評価局面は固定）")
     a = ap.parse_args()
-    keys, vals, _ = run_sampler(a.data, a.train, 1, False)
+    keys, vals, _ = run_sampler(a.data, a.train, a.seed, False)
     keep = vals != 2
     keys, vals = keys[keep], vals[keep]
     tkeys, tvals, tkids = run_sampler(a.data, a.test, 2, True)
     for kind in a.kinds.split(","):
         t = time.time()
         m = ThreatModel(kind).fit(keys, vals)
-        res = {"kind": kind, "train": a.train, **evaluate(m, tkeys, tvals, tkids), "sec": round(time.time() - t)}
+        res = {"kind": kind, "train": a.train, "seed": a.seed, "lion": LION, "mlp_iter": int(os.environ.get("X1_MLP_ITER", "20")), **evaluate(m, tkeys, tvals, tkids), "sec": round(time.time() - t)}
         print(json.dumps(res), flush=True)
         with open(a.out, "a") as f:
             f.write(json.dumps(res) + "\n")
