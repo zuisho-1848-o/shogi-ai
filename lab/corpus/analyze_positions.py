@@ -10,6 +10,7 @@
 """
 
 import argparse
+import glob
 import json
 import os
 import subprocess
@@ -73,12 +74,16 @@ def main():
     ap.add_argument("--nodes", type=int, default=1000000)
     ap.add_argument("--threads", type=int, default=1)
     ap.add_argument("--hash", type=int, default=128)
+    ap.add_argument("--shard", type=int, default=0, help="並列実行するときの担当番号（0始まり）")
+    ap.add_argument("--nshards", type=int, default=1)
     a = ap.parse_args()
 
+    # 既に解析した局面は、本体と分割実行の出力（<out>.<番号>）の両方から集める
     done = set()
-    if os.path.exists(a.out):
-        with open(a.out) as f:
-            done = {json.loads(l)["sfen"] for l in f if l.strip()}
+    for path in [a.out] + glob.glob(a.out + ".*"):
+        if os.path.exists(path):
+            with open(path) as f:
+                done |= {json.loads(l)["sfen"] for l in f if l.strip()}
     todo = []
     for path in a.inputs:
         with open(path) as f:
@@ -87,10 +92,12 @@ def main():
                 if s not in done:
                     done.add(s)
                     todo.append(s)
-    print(f"todo {len(todo)}", flush=True)
+    todo = todo[a.shard :: a.nshards]
+    out = a.out if a.nshards == 1 else f"{a.out}.{a.shard}"
+    print(f"todo {len(todo)} (shard {a.shard}/{a.nshards})", flush=True)
     eng = Usi(a.threads, a.hash)
     t0 = time.time()
-    with open(a.out, "a") as f:
+    with open(out, "a") as f:
         for i, sfen in enumerate(todo):
             r = eng.go(sfen, a.nodes)
             f.write(json.dumps({"sfen": sfen, **r}) + "\n")
