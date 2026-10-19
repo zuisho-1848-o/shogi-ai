@@ -23,6 +23,7 @@ from x1_expressivity import HERE, Model, cls, run_sampler
 from x5_threats import ThreatModel
 
 REC = np.dtype([("key", "<u8"), ("val", "u1"), ("mv", "<u2")])
+IMM_LEAF = set()  # 即勝ちのある局面（葉で見つかったら確定値 1）
 
 
 def expand(data, keys):
@@ -32,9 +33,11 @@ def expand(data, keys):
     for k in keys:
         imm, nc = out[p + 9], out[p + 10]
         p += 11
-        ch = np.frombuffer(out, dtype=REC, count=nc, offset=p)["key"] if nc else np.zeros(0, dtype=np.uint64)
+        rec = np.frombuffer(out, dtype=REC, count=nc, offset=p) if nc else np.zeros(0, dtype=REC)
         p += 11 * nc
-        res[int(k)] = (bool(imm), ch)
+        res[int(k)] = (bool(imm), rec["key"])
+        # 子が「即勝ち」（ライオンを取れる/トライ成立）かはルールだけで分かるので記録しておく（葉の確定値に使う）
+        IMM_LEAF.update(int(c) for c in rec["key"][rec["val"] == 2])
     return res
 
 
@@ -120,7 +123,7 @@ def main():
                 if hit is not None:
                     return hit
                 if r == 0:
-                    v = pw[k]
+                    v = 1.0 if k in IMM_LEAF else pw[k]
                 else:
                     imm, ch = tree[k]
                     v = 1.0 if imm else (max(1.0 - V(int(c), r - 1) for c in ch) if len(ch) else 0.0)
