@@ -14,3 +14,10 @@ engines/**
 reports/
 kifu/*
 !kifu/sample.kif
+
+# 研究用実験（lab/）: 環境・生成データ・ビルド成果物
+lab/.venv/
+lab/data/
+lab/dobutsu/solve
+lab/dobutsu/sample
+lab/dobutsu/export
