@@ -1,0 +1,6 @@
+{"kind": "material", "logloss": 0.7038, "acc": 0.5621, "agree_nnue": 0.1274, "random": 0.0215, "sec": 1}
+{"kind": "P", "logloss": 0.6335, "acc": 0.6494, "agree_nnue": 0.0724, "random": 0.0215, "sec": 1}
+{"kind": "KP", "logloss": 0.8237, "acc": 0.6256, "agree_nnue": 0.0543, "random": 0.0215, "sec": 3}
+{"kind": "T", "logloss": 0.685, "acc": 0.5685, "agree_nnue": 0.0436, "random": 0.0215, "sec": 1}
+{"kind": "KP+T", "logloss": 0.9029, "acc": 0.6343, "agree_nnue": 0.0543, "random": 0.0215, "sec": 4}
+{"kind": "GBDT", "logloss": 0.6134, "acc": 0.6504, "agree_nnue": 0.0734, "random": 0.0215, "sec": 35}

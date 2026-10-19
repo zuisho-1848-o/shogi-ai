@@ -1,0 +1,6 @@
+{"kind": "material", "teacher": "score", "mse": 0.1223, "corr": 0.493, "sign": 0.4677, "agree_nnue": 0.1207, "random": 0.0212, "sec": 1}
+{"kind": "P", "teacher": "score", "mse": 0.1136, "corr": 0.5465, "sign": 0.5168, "agree_nnue": 0.0966, "random": 0.0212, "sec": 1}
+{"kind": "KP", "teacher": "score", "mse": 0.1079, "corr": 0.5759, "sign": 0.5413, "agree_nnue": 0.0696, "random": 0.0212, "sec": 3}
+{"kind": "T", "teacher": "score", "mse": 0.1337, "corr": 0.4071, "sign": 0.4662, "agree_nnue": 0.0501, "random": 0.0212, "sec": 1}
+{"kind": "KP+T", "teacher": "score", "mse": 0.1031, "corr": 0.5986, "sign": 0.5438, "agree_nnue": 0.0746, "random": 0.0212, "sec": 4}
+{"kind": "GBDT", "teacher": "score", "mse": 0.1012, "corr": 0.6079, "sign": 0.5012, "agree_nnue": 0.0608, "random": 0.0212, "sec": 27}
