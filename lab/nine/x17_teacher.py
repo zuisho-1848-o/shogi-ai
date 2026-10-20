@@ -95,7 +95,7 @@ def gen(n, nodes):
     eng.send("quit")
 
 
-def add_imbalanced(F, y, w, limit=None):
+def add_imbalanced(F, y, w, limit=None, weight=1.0):
     with open(OUT) as f:
         rows = [json.loads(l) for l in f]
     if limit:
@@ -106,23 +106,32 @@ def add_imbalanced(F, y, w, limit=None):
         b = cshogi.Board(r["sfen"] + " 1")
         F.add(b)
         ys.append(float(np.tanh(np.clip(r["score_cp"], -3000, 3000) / 1200)))
-        ws.append(1.0)
+        ws.append(weight)
     return F, np.array(ys), np.array(ws), len(rows)
+
+
+def fit_weighted(kind, F, y, w):
+    """SGDRegressor に重みを渡して学習（x7.fit は重みを使わないため）"""
+    from sklearn.linear_model import SGDRegressor
+
+    m = SGDRegressor(alpha=1e-6, learning_rate="invscaling", eta0=0.002, max_iter=10, tol=None)
+    m.fit(F.X(kind), y, sample_weight=w)
+    return m
 
 
 def probe(ev):
     return {name: round(ev(cshogi.Board(s)), 3) for name, s in PROBES.items()}
 
 
-def train_and_match(n_games, depth, kind):
+def train_and_match(n_games, depth, kind, imb_weight=1.0, players="new,mix"):
     games, n_test = split_games()
     rng = random.Random(0)
     F, y, w = x7.collect(games[n_test:], 3, rng, "score")
     base = Evaluator(kind, x7.fit(kind, F, y, w))
-    F, y, w, n_imb = add_imbalanced(F, y, w)
-    new = Evaluator(kind, x7.fit(kind, F, y, w))
+    F, y, w, n_imb = add_imbalanced(F, y, w, weight=imb_weight)
+    new = Evaluator(kind, fit_weighted(kind, F, y, w))
     del F
-    res = {"kind": kind, "imbalanced_positions": n_imb, "probe_before": probe(base), "probe_after": probe(new)}
+    res = {"kind": kind, "imbalanced_positions": n_imb, "imb_weight": imb_weight, "probe_before": probe(base), "probe_after": probe(new)}
     print(json.dumps(res, ensure_ascii=False), flush=True)
     test_files = {g["file"] for g in games[:n_test]}
     with open(os.path.join(x7.DATA, "exits.jsonl")) as f:
@@ -132,7 +141,8 @@ def train_and_match(n_games, depth, kind):
     starts = starts[:n_games]
     judge = Usi(1, 64)
     classic = Classic()
-    for name, ev in (("学習評価だけ（作り直した教師）", new), ("固定の駒の価値+0.5×学習評価（作り直した教師）", Mix(classic, new, 0.5))):
+    cand = {"base": ("学習評価だけ（元の教師）", base), "new": ("学習評価だけ（作り直した教師）", new), "mix": ("固定の駒の価値+0.5×学習評価（作り直した教師）", Mix(classic, new, 0.5))}
+    for name, ev in (cand[p] for p in players.split(",")):
         score = {"win": 0, "loss": 0, "draw": 0}
         for s in starts:
             for swap in (False, True):
@@ -158,11 +168,13 @@ def main():
     ap.add_argument("--games", type=int, default=30)
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--kind", default="M+KP+T")
+    ap.add_argument("--imb-weight", type=float, default=1.0, help="作った局面の重み")
+    ap.add_argument("--players", default="new,mix", help="対局させる評価: base（元の教師）/ new / mix")
     a = ap.parse_args()
     if a.gen:
         gen(a.n, a.nodes)
     if a.train:
-        train_and_match(a.games, a.depth, a.kind)
+        train_and_match(a.games, a.depth, a.kind, a.imb_weight, a.players)
 
 
 if __name__ == "__main__":
