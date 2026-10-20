@@ -1,0 +1,4 @@
+{"pair": ["material", "M+KP+T"], "depth": 2, "games": 60, "win": 41, "loss": 19, "draw": 0, "score_rate": 0.6833, "sec": 655}
+{"pair": ["material", "GBDT"], "depth": 1, "games": 100, "win": 30, "loss": 66, "draw": 4, "score_rate": 0.32, "sec": 825}
+{"pair": ["material", "M+KP+T"], "depth": 1, "games": 100, "win": 21, "loss": 78, "draw": 1, "score_rate": 0.215, "sec": 148}
+{"pair": ["M+KP+T", "GBDT"], "depth": 1, "games": 100, "win": 50, "loss": 49, "draw": 1, "score_rate": 0.505, "sec": 1345}
