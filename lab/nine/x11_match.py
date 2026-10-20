@@ -27,7 +27,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../corpus"))
 from analyze_positions import Usi  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-INF = 2.0
+INF = 1e9  # 評価値の範囲（tanh＋λ×学習評価）を超えても手を選べるように十分大きく
+MATE = 1e6  # 詰みの値。評価値がどれだけ振れても詰みの方が重くなるように
 
 
 def ordered(board):
@@ -47,7 +48,7 @@ def search(board, ev, depth, alpha, beta):
         return 0.0
     moves = ordered(board)
     if not moves:
-        return -1.0
+        return -MATE
     if depth == 0:
         return qsearch(board, ev, alpha, beta, 4)
     best = -INF

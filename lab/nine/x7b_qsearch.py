@@ -54,7 +54,7 @@ def qsearch(board, ev, alpha, beta, depth):
     if in_check:
         moves = list(board.legal_moves)
         if not moves:
-            return -1.0  # 詰み
+            return -1e6  # 詰み（評価値の範囲より十分大きく）
     else:
         stand = ev(board)
         if depth == 0 or stand >= beta:

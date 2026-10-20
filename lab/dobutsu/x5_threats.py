@@ -95,6 +95,10 @@ def threat_values(keys):
     v["my_mob"] = POP[0] + sum(POP[np.where(mine[:, s], att[:, s] & ~occ_me & 0xFFF, 0)] for s in range(12)) + empty * (hm > 0).sum(axis=1) // 3
     v["op_mob"] = sum(POP[np.where(theirs[:, s], att[:, s] & ~occ_op & 0xFFF, 0)] for s in range(12)) + empty * (ho > 0).sum(axis=1) // 3
     v["check"] = ((op_att >> my_l) & 1).astype(np.int64)
+    # 取り合いの判定（X14 用）: 相手の利きの数が自分の守りの数より多い駒（取られそうな駒）
+    v["my_enprise"] = (mine & (code != 1) & (op_cnt > my_cnt)).sum(axis=1)
+    v["op_enprise"] = (theirs & (code != 9) & (my_cnt > op_cnt)).sum(axis=1)
+    v["my_lion_att"] = op_cnt[np.arange(n), my_l]  # 自ライオンに利いている相手の駒の数
     rows = (my_l // 3) * 4 + op_l // 3  # 16 通りの局面の型
     if LION:
         # 前方（相手陣の方向）へ安全に動けるマスの数
