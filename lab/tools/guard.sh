@@ -5,7 +5,7 @@
 # 使い方: nohup lab/tools/guard.sh > lab/data/guard.log 2>&1 &
 LOW=${LOW:-15}
 HIGH=${HIGH:-25}
-PATTERN=${PATTERN:-'^(\./solve|[^ ]*dobutsu/sample|[^ ]*python[0-9.]* [^ ]*(analyze_positions|x1_expressivity|x1b_errors|x2_search|x4_patterns|x5_threats|x7_expressivity|x7b_qsearch|x8_rules|x9_long_wins|x10_theory|x6_mate_zones|x11_match|x12_rules|x12b_verify|x13_mix|x14_rules|x15_proverbs9))'}
+PATTERN=${PATTERN:-'^(\./solve|[^ ]*dobutsu/sample|[^ ]*python[0-9.]* [^ ]*(analyze_positions|x1_expressivity|x1b_errors|x2_search|x4_patterns|x5_threats|x7_expressivity|x7b_qsearch|x8_rules|x9_long_wins|x10_theory|x6_mate_zones|x11_match|x12_rules|x12b_verify|x13_mix|x14_rules|x15_proverbs9|x16_reversal_tree|x17_teacher))'}
 paused=0
 while true; do
   free=$(memory_pressure | awk -F': ' '/free percentage/ {gsub("%","",$2); print $2}')
