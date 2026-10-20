@@ -75,21 +75,54 @@ def dead_square(pt, color, r):
     return (pt in (PAWN, LANCE) and rr == 0) or (pt == KNIGHT and rr <= 1)
 
 
-class Ctx:
-    """盤面と持ち駒。get/hand を通した読み取りは全て記録される（reads / hreads は証明木全体で共有）"""
+ALL = (1 << 32) - 1
+EMPTY_ONLY = 1
 
-    def __init__(self, board, hands, turn, reads, hreads):
+
+def code_bits(codes):
+    m = 0
+    for c in codes:
+        m |= 1 << c
+    return m
+
+
+def color_bits(color):
+    return code_bits(t + 16 * color for t in range(1, 15))
+
+
+class Ctx:
+    """盤面と持ち駒。読み取りは「そのマスに許される駒の集合（32bitの集合）」として記録される。
+
+    cons[sq] = 元の局面の sq に置いてよい駒コードの集合（0 = 空き）。証明木全体で共有。
+    計算は記録した制約を満たす限り同じ結果になるので、制約を満たす局面は全て同じ手順で詰む。
+    touched = 手順の途中で動いたマス（元の局面の中身とは違うので、制約は元の局面に対しては付けない。
+    そのマスは動かした時点で厳密に読んでいる）
+    """
+
+    def __init__(self, board, hands, turn, cons, hreads, touched=frozenset()):
         self.b = list(board)
         self.h = [list(hands[0]), list(hands[1])]
         self.turn = turn
-        self.reads = reads
+        self.cons = cons
         self.hreads = hreads
+        self.touched = touched
+
+    @property
+    def reads(self):
+        return set(self.cons)
 
     def copy(self):
-        return Ctx(self.b, self.h, self.turn, self.reads, self.hreads)
+        return Ctx(self.b, self.h, self.turn, self.cons, self.hreads, self.touched)
+
+    def need(self, sq, mask):
+        if sq in self.touched:
+            return
+        self.cons[sq] = self.cons.get(sq, ALL) & mask
+        assert self.cons[sq] & (1 << self.b[sq]), "制約が元の局面と矛盾"
 
     def get(self, sq):
-        self.reads.add(sq)
+        """中身をそのまま使う読み取り（厳密）"""
+        self.need(sq, 1 << self.b[sq])
         return self.b[sq]
 
     def hand(self, color, pt):
@@ -97,40 +130,55 @@ class Ctx:
         return self.h[color][HAND_INDEX[pt]]
 
     # ---- 利き ----
+    @staticmethod
+    def _forbid(by, d, k, exclude_king):
+        """s から向き d・距離 k で目標に利く by 側の駒コードの集合"""
+        m = 0
+        for t in range(1, 15):
+            if exclude_king and t == KING:
+                continue
+            if (k == 1 and d in orient(STEPS.get(t, []), by)) or d in orient(SLIDES.get(t, []), by):
+                m |= 1 << (t + 16 * by)
+        return m
+
     def attackers(self, sq, by, first_only=False, exclude_king=False):
-        """sq に利いている by 側の駒のマスの一覧（逆向きに走査して必要なマスだけ読む）"""
+        """sq に利いている by 側の駒のマスの一覧（逆向きに走査。利く駒が無いことを確かめたマスは
+        「利く駒以外なら何でもよい」、遮っている駒は「何かの駒で、利かないもの」という制約になる）"""
         f0, r0 = fr(sq)
         out = []
         for df, dr in ORTH + DIAG:
             k = 1
+            d = (-df, -dr)
             while True:
                 f, r = f0 + df * k, r0 + dr * k
                 if not (0 <= f < 9 and 0 <= r < 9):
                     break
                 s = sq_of(f, r)
-                p = self.get(s)
-                if p:
-                    if pcolor(p) == by and not (exclude_king and ptype(p) == KING):
-                        t = ptype(p)
-                        # s から sq への向き = (-df, -dr)
-                        d = (-df, -dr)
-                        if k == 1 and d in orient(STEPS.get(t, []), by):
-                            out.append(s)
-                        elif d in orient(SLIDES.get(t, []), by):
-                            out.append(s)
-                        if first_only and out:
-                            return out
+                p = self.b[s]
+                forbid = self._forbid(by, d, k, exclude_king)
+                if p and (1 << p) & forbid:
+                    self.get(s)  # 利いている駒（取る手などに使うので厳密に）
+                    out.append(s)
+                    if first_only:
+                        return out
                     break
+                if p:
+                    self.need(s, ALL & ~EMPTY_ONLY & ~forbid)  # 遮る駒（利かない駒なら何でもよい）
+                    break
+                self.need(s, ALL & ~forbid)  # 空き（利く駒でなければ何でもよい）
                 k += 1
+        kn = 1 << (KNIGHT + 16 * by)
         for jf, jr in orient(JUMPS[KNIGHT], by):
             f, r = f0 - jf, r0 - jr
             if 0 <= f < 9 and 0 <= r < 9:
                 s = sq_of(f, r)
-                p = self.get(s)
-                if p and pcolor(p) == by and ptype(p) == KNIGHT:
+                if self.b[s] == KNIGHT + 16 * by:
+                    self.get(s)
                     out.append(s)
                     if first_only:
                         return out
+                else:
+                    self.need(s, ALL & ~kn)
         return out
 
     def attacked(self, sq, by):
@@ -147,6 +195,7 @@ class Ctx:
         c = self.copy()
         frm, to, x = mv
         me = self.turn
+        c.touched = self.touched | {to} | ({frm} if frm is not None else set())
         if frm is None:
             c.h[me][HAND_INDEX[x]] -= 1
             c.b[to] = x + 16 * me
@@ -182,10 +231,13 @@ class Ctx:
             if not (0 <= f < 9 and 0 <= r < 9):
                 continue
             t = sq_of(f, r)
-            p = self.get(t)
+            p = self.b[t]
             if p and pcolor(p) == me:
+                self.need(t, color_bits(me))
                 continue
+            self.get(t)
             c = self.copy()
+            c.touched = self.touched | {ksq, t}
             c.b[ksq] = 0
             c.b[t] = KING + 16 * me
             if not c.attacked(t, op):
@@ -226,7 +278,14 @@ class Ctx:
         return moves
 
     def nifu(self, color, f):
-        return any(self.get(sq_of(f, r)) == PAWN + 16 * color for r in range(9))
+        pawn = PAWN + 16 * color
+        for r in range(9):
+            s = sq_of(f, r)
+            if self.b[s] == pawn:
+                self.get(s)
+                return True
+            self.need(s, ALL & ~(1 << pawn))
+        return False
 
     def verify_attack_move(self, mv, my_k, op_k):
         """攻め方の手 mv が合法で、王手になっていることを確かめる（読み取りは記録される）"""

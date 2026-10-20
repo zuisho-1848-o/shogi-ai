@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 def ctx_of(b):
     hb, hw = b.pieces_in_hand
-    return zone.Ctx(b.pieces, (hb, hw), b.turn, set(), set())
+    return zone.Ctx(b.pieces, (hb, hw), b.turn, {}, set())
 
 
 def main():
