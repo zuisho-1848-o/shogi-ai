@@ -118,7 +118,8 @@ def main():
     keep = vals != 2
     keys, vals = keys[keep], vals[keep]
     tkeys, tvals, tkids = run_sampler(a.data, a.test, 2, True)
-    for with_t in (False, True):
+    ap_t = os.environ.get("X18_THREAT", "both")  # both / only（脅威の特徴量ありだけ）
+    for with_t in ((True,) if ap_t == "only" else (False, True)):
         for r in [int(x) for x in a.ranks.split(",")]:
             t = time.time()
             m = LowRank(r, with_t).fit(keys, vals)

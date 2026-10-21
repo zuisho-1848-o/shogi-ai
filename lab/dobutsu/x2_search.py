@@ -93,7 +93,12 @@ def main():
     print(f"tree nodes {len(tree)}, {time.time() - t0:.0f}s", flush=True)
 
     for kind in a.kinds.split(","):
-        m = (ThreatModel(kind) if "T" in kind.split("+") else Model(kind)).fit(keys, vals)
+        if kind.startswith("LR"):  # 低ランクの3駒関係（X18）。例: LR128T = ランク128＋脅威
+            from x18_lowrank import LowRank
+
+            m = LowRank(int(kind[2:].rstrip("T")), kind.endswith("T")).fit(keys, vals)
+        else:
+            m = (ThreatModel(kind) if "T" in kind.split("+") else Model(kind)).fit(keys, vals)
         for D in depths:
             t = time.time()
             # 葉（残り深さ0で評価する局面）を集めて一括評価
