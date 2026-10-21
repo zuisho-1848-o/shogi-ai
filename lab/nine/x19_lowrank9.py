@@ -146,6 +146,7 @@ def main():
     ap.add_argument("--match", action="store_true")
     ap.add_argument("--lam", type=float, default=0.5)
     ap.add_argument("--games", type=int, default=30)
+    ap.add_argument("--with-imb", action="store_true", help="見慣れない局面（駒の損得のある局面）の半分を学習に足す")
     ap.add_argument("--out", default=os.path.join(HERE, "../results/x19_lowrank9.jsonl"))
     a = ap.parse_args()
     t0 = time.time()
@@ -155,6 +156,26 @@ def main():
     n_test = len(games) // 10
     tr = collect(games[n_test:], a.every, rng)
     te = collect(games[:n_test], a.every, rng)
+    # 見慣れない局面（X17 で作った駒の損得のある局面、NNUE 評価つき）: 前半を学習に足す（--with-imb）、後半で外れ方を測る
+    with open(os.path.join(x7.DATA, "imbalanced.jsonl")) as f:
+        imb = [json.loads(l) for l in f]
+    half = len(imb) // 2
+
+    def enc_rows(rows):
+        P, T, K, O, Y = [], [], [], [], []
+        for r in rows:
+            p, t, ks, ko = encode(cshogi.Board(r["sfen"] + " 1"))
+            P.append(p)
+            T.append(t)
+            K.append(ks)
+            O.append(ko)
+            Y.append(float(np.tanh(np.clip(r["score_cp"], -3000, 3000) / 1200)))
+        return np.array(P), np.array(T), np.array(K), np.array(O), np.array(Y)
+
+    off = enc_rows(imb[half:])
+    if a.with_imb:
+        add = enc_rows(imb[:half])
+        tr = tuple(np.concatenate([x, y]) for x, y in zip(tr, add))
     print(f"train {len(tr[4])} / test {len(te[4])}, {time.time() - t0:.0f}s", flush=True)
     best = None
     for r in [int(x) for x in a.ranks.split(",")]:
@@ -162,7 +183,8 @@ def main():
         m = LowRank9(r).fit(*tr)
         p = m.predict(*te[:4])
         corr = float(np.corrcoef(p, te[4])[0, 1])
-        res = {"rank": r, "params": int(m.nparams()), "corr": round(corr, 4), "mse": round(float(np.mean((p - te[4]) ** 2)), 4), "sec": round(time.time() - t)}
+        po = m.predict(*off[:4])
+        res = {"rank": r, "with_imb": a.with_imb, "params": int(m.nparams()), "corr": round(corr, 4), "corr_offdist": round(float(np.corrcoef(po, off[4])[0, 1]), 4), "mse": round(float(np.mean((p - te[4]) ** 2)), 4), "sec": round(time.time() - t)}
         print(json.dumps(res), flush=True)
         with open(a.out, "a") as f:
             f.write(json.dumps(res) + "\n")
@@ -190,7 +212,7 @@ def main():
                 r_ = -r_ if swap else r_
                 score["win" if r_ > 0 else "loss" if r_ < 0 else "draw"] += 1
         n = sum(score.values())
-        res = {"match": f"固定の駒の価値+{a.lam}×低ランクr={best[1]}", "vs": "固定の駒の価値だけ", "depth": 2, **score, "score_rate": round((score["win"] + 0.5 * score["draw"]) / n, 4)}
+        res = {"match": f"固定の駒の価値+{a.lam}×低ランクr={best[1]}" + ("（見慣れない局面を学習に追加）" if a.with_imb else ""), "vs": "固定の駒の価値だけ", "depth": 2, **score, "score_rate": round((score["win"] + 0.5 * score["draw"]) / n, 4)}
         print(json.dumps(res, ensure_ascii=False), flush=True)
         with open(a.out, "a") as f:
             f.write(json.dumps(res, ensure_ascii=False) + "\n")
