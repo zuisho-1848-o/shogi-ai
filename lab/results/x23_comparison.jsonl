@@ -1,0 +1,1 @@
+{"method": "比較学習（MMTO型）", "n": 2000, "iters": 3, "lam": 0.5, "vs": "固定の駒の価値だけ", "depth": 2, "win": 40, "loss": 19, "draw": 1, "score_rate": 0.675, "sec": 4408}
