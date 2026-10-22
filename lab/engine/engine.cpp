@@ -206,8 +206,25 @@ static double linearEval(Position& pos) {
 }
 
 static long long EVALS = 0;
+static bool PRUNING = true;  // null move / LMR / futility / 評価値の使い回し（UsePruning で切り替え）
+
+struct EvalEntry { Key key = 0; double v = 0; };
+static std::vector<EvalEntry> EVAL_CACHE(1 << 20);
+
+static double evaluateRaw(Position& pos);
 
 static double evaluate(Position& pos) {
+    if (!PRUNING) return evaluateRaw(pos);
+    Key k = pos.getKey();
+    EvalEntry& e = EVAL_CACHE[k & (EVAL_CACHE.size() - 1)];
+    if (e.key == k) return e.v;
+    double v = evaluateRaw(pos);
+    e.key = k;
+    e.v = v;
+    return v;
+}
+
+static double evaluateRaw(Position& pos) {
     EVALS++;
     double v = classicEval(pos);
     if (USE_LINEAR && W.loaded) {
@@ -304,9 +321,20 @@ struct Search {
                 if (e.flag == 2 && e.v <= alpha) return e.v;
             }
         }
-        if (ply > 0 && !pos.inCheck()) {
+        const bool inCheck = pos.inCheck();
+        if (ply > 0 && !inCheck) {
             Move m1 = pos.mateMoveIn1Ply();
             if (m1.value()) return MATE - ply - 1;
+        }
+        double staticEval = (!inCheck && PRUNING) ? evaluate(pos) : 0;
+        // null move: パスしても beta を超えるなら、深く読まずに打ち切る
+        if (PRUNING && !inCheck && ply > 0 && depth >= 3 && staticEval >= beta && std::abs(beta) < MATE / 2) {
+            StateInfo st;
+            pos.doNullMove<true>(st);
+            double s = -search(pos, -beta, -beta + 1e-6, depth - 3, ply + 1, nullptr);
+            pos.doNullMove<false>(st);
+            if (stop) return 0;
+            if (s >= beta) return s;
         }
         std::vector<std::pair<int, Move>> moves;
         for (MoveList<LegalAll> ml(pos); !ml.end(); ++ml) moves.push_back({score(pos, ml.move(), ttMove, ply), ml.move()});
@@ -314,10 +342,22 @@ struct Search {
         std::sort(moves.begin(), moves.end(), [](auto& a, auto& b) { return a.first > b.first; });
         double best = -INF, a0 = alpha;
         Move bestM = moves[0].second;
-        for (auto& [_, m] : moves) {
+        int idx = 0;
+        for (auto& [sc, m] : moves) {
+            const bool quiet = sc < (1 << 18) && !m.isPromotion();
+            idx++;
+            // futility: 末端の手前で、評価に余裕を足しても alpha に届かない静かな手は読まない
+            if (PRUNING && depth == 1 && !inCheck && quiet && idx > 1 && staticEval + 0.15 <= alpha) continue;
             StateInfo st;
             pos.doMove(m, st);
-            double s = -search(pos, -beta, -alpha, depth - 1, ply + 1, nullptr);
+            double s;
+            // LMR: 後ろの方の静かな手は1手浅く読み、良さそうなら読み直す
+            if (PRUNING && depth >= 3 && idx > 3 && quiet && !inCheck && !pos.inCheck()) {
+                s = -search(pos, -alpha - 1e-6, -alpha, depth - 2, ply + 1, nullptr);
+                if (s > alpha && !stop) s = -search(pos, -beta, -alpha, depth - 1, ply + 1, nullptr);
+            } else {
+                s = -search(pos, -beta, -alpha, depth - 1, ply + 1, nullptr);
+            }
             pos.undoMove(m);
             if (stop) return 0;
             if (s > best) { best = s; bestM = m; }
@@ -399,6 +439,7 @@ int main() {
             std::cout << "option name EvalFile type string default weights.bin\n";
             std::cout << "option name Lambda type string default -1\n";
             std::cout << "option name UseLinear type check default true\n";
+            std::cout << "option name UsePruning type check default true\n";
             std::cout << "usiok" << std::endl;
         } else if (cmd == "setoption") {
             std::string tok, name, value;
@@ -406,11 +447,13 @@ int main() {
             if (name == "EvalFile") evalFile = value;
             if (name == "Lambda") LAMBDA_OVERRIDE = std::stof(value);
             if (name == "UseLinear") USE_LINEAR = (value == "true");
+            if (name == "UsePruning") PRUNING = (value == "true");
         } else if (cmd == "isready") {
             if (USE_LINEAR && !W.loaded && !W.load(evalFile)) std::cout << "info string cannot load " << evalFile << std::endl;
             std::cout << "readyok" << std::endl;
         } else if (cmd == "usinewgame") {
             std::fill(TT.begin(), TT.end(), TTEntry());
+            std::fill(EVAL_CACHE.begin(), EVAL_CACHE.end(), EvalEntry());
         } else if (cmd == "position") {
             setPosition(pos, is, states);
         } else if (cmd == "go") {

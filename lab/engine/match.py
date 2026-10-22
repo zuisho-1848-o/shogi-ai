@@ -5,6 +5,7 @@
 
 エンジンの指定（--a / --b）:
   nonnn:LAMBDA        研究用エンジン（固定の駒の価値 + LAMBDA×線形。LAMBDA=0 なら固定の駒の価値だけ）
+  nonnn2:LAMBDA       同じ評価で、探索に枝刈り（null move / LMR / futility）と評価値の使い回しを足した版
   material            やねうら王 Material 版
   nnue                やねうら王 NNUE 版（水匠5）
 時間: --a-ms / --b-ms（1手あたりのミリ秒。go movetime）
@@ -33,7 +34,7 @@ class Engine:
         self.spec = spec
         if spec.startswith("nonnn"):
             lam = spec.split(":")[1] if ":" in spec else "0.5"
-            cmd = [os.path.join(HERE, "build/nonnn")]
+            cmd = [os.path.join(HERE, "build/" + spec.split(":")[0])]  # nonnn / nonnn2（改良版）
             opts = {"EvalFile": os.path.join(HERE, "../data/engine/weights_mkpt.bin"), "Lambda": lam, "UseLinear": "true" if float(lam) != 0 else "false"}
             cwd = HERE
         elif spec == "material":

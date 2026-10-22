@@ -9,5 +9,5 @@ mkdir -p build
 clang++ -O3 -std=c++17 -mcpu=apple-m1 -DNDEBUG -I$SRC \
   engine.cpp $SRC/bitboard.cpp $SRC/common.cpp $SRC/generateMoves.cpp $SRC/hand.cpp $SRC/init.cpp \
   $SRC/move.cpp $SRC/mt64bit.cpp $SRC/position.cpp $SRC/square.cpp $SRC/usi.cpp $SRC/search.cpp $SRC/book.cpp \
-  -o build/nonnn
-echo built build/nonnn
+  -o build/${1:-nonnn}
+echo built build/${1:-nonnn}
