@@ -23,3 +23,5 @@ lab/dobutsu/sample
 lab/dobutsu/export
 lab/engine/third_party/
 lab/engine/build/
+lab/lean/.lake/
+lab/lean/Dobutsu/Data.lean
