@@ -63,6 +63,7 @@ struct Weights {
 static Weights W;
 static float LAMBDA_OVERRIDE = -1.0f;
 static bool USE_LINEAR = true;
+static bool USE_THREAT = true;  // false: 脅威の特徴量を計算しない（重みファイルの脅威の部分は 0 の想定。合法手の生成が不要になり軽い）
 
 static inline bool inNeigh(int a, int b) {  // b が a の8近傍か
     int fa = a / 9, ra = a % 9, fb = b / 9, rb = b % 9;
@@ -141,7 +142,8 @@ static double linearEval(Position& pos) {
     int ko = (turn == Black) ? koReal : 80 - koReal;
 
     // 脅威の特徴量
-    int t[NT];
+    int t[NT] = {0};
+    if (USE_THREAT) {
     MoveInfo mine = movesInfo(pos, koReal);
     bool check = pos.inCheck();
     t[0] = mine.n;
@@ -162,6 +164,7 @@ static double linearEval(Position& pos) {
         pos.doNullMove<false>(st);
     } else {
         t[1] = t[8] = t[10] = t[4] = t[6] = 0;
+    }
     }
     auto goldLike = [](int c) { return c == 3 || c == 6 || c == 8 || c == 9 || c == 10 || c == 11; };
     int guard = 0, opGuard = 0, promoted = 0;
@@ -197,7 +200,7 @@ static double linearEval(Position& pos) {
             int cnt = std::min(side == 0 ? hm[k] : ho[k], 19);
             for (int j = 0; j < cnt; ++j) addP(base + (side * 7 + k) * 19 + j);
         }
-    for (int i = 0; i < NT; ++i) {
+    for (int i = 0; i < NT && USE_THREAT; ++i) {
         int val = std::min(t[i], T_B - 1);
         v += w[OFF_T + i * T_B + val];
         v += w[OFF_T + NT * T_B * (1 + ph) + i * T_B + val];
@@ -440,6 +443,7 @@ int main() {
             std::cout << "option name Lambda type string default -1\n";
             std::cout << "option name UseLinear type check default true\n";
             std::cout << "option name UsePruning type check default true\n";
+            std::cout << "option name UseThreat type check default true\n";
             std::cout << "usiok" << std::endl;
         } else if (cmd == "setoption") {
             std::string tok, name, value;
@@ -448,6 +452,7 @@ int main() {
             if (name == "Lambda") LAMBDA_OVERRIDE = std::stof(value);
             if (name == "UseLinear") USE_LINEAR = (value == "true");
             if (name == "UsePruning") PRUNING = (value == "true");
+            if (name == "UseThreat") USE_THREAT = (value == "true");
         } else if (cmd == "isready") {
             if (USE_LINEAR && !W.loaded && !W.load(evalFile)) std::cout << "info string cannot load " << evalFile << std::endl;
             std::cout << "readyok" << std::endl;

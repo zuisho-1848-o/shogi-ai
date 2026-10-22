@@ -27,15 +27,19 @@ def main():
     ap.add_argument("--lam", type=float, default=0.5)
     ap.add_argument("--every", type=int, default=3)
     ap.add_argument("--check", type=int, default=2000)
+    ap.add_argument("--kind", default="M+KP+T", help="M+KP+T / M+KP（脅威なし。C++ 側は UseThreat false で使う）")
     a = ap.parse_args()
     rng = random.Random(0)
     games = x7.load_games()
     rng.shuffle(games)
     n_test = len(games) // 10
     F, y, w = x7.collect(games[n_test:], a.every, rng, "score")
-    m = x7.fit("M+KP+T", F, y, w)
+    m = x7.fit(a.kind, F, y, w)
     del F
     coef = m.coef_.astype(np.float32)
+    full = 42 + x7.P_DIM + x7.KP_DIM + x7.T_DIM
+    if len(coef) < full:  # 脅威なしの版は、脅威の部分を 0 で埋めて同じ形式にする
+        coef = np.concatenate([coef, np.zeros(full - len(coef), dtype=np.float32)])
     b = np.float32(np.ravel(m.intercept_)[0])
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     with open(a.out, "wb") as f:
@@ -44,7 +48,7 @@ def main():
         coef.tofile(f)
     print(f"wrote {a.out}: dim {len(coef)}, bias {b:.4f}, lam {a.lam}")
     if a.check:
-        ev = Evaluator("M+KP+T", m)
+        ev = Evaluator(a.kind, m)
         classic = Classic()
         sfens = []
         r2 = random.Random(5)
@@ -56,8 +60,8 @@ def main():
                     sfens.append(bd.sfen())
             if len(sfens) >= a.check:
                 break
-        exe = os.path.join(HERE, "build/nonnn")
-        inp = f"setoption name EvalFile value {a.out}\nevaltest\n" + "\n".join(sfens) + "\n\nquit\n"
+        exe = os.path.join(HERE, "build/nonnn2")
+        inp = f"setoption name EvalFile value {a.out}\nsetoption name UseThreat value {'true' if a.kind.endswith('T') else 'false'}\nevaltest\n" + "\n".join(sfens) + "\n\nquit\n"
         out = subprocess.run([exe], input=inp, capture_output=True, text=True).stdout.split("\n")
         rows = [l.split() for l in out if l.strip() and l[0] in "-0123456789"]
         c_cls = np.array([float(r[0]) for r in rows])

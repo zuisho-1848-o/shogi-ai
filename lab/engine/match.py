@@ -5,6 +5,7 @@
 
 エンジンの指定（--a / --b）:
   nonnn:LAMBDA        研究用エンジン（固定の駒の価値 + LAMBDA×線形。LAMBDA=0 なら固定の駒の価値だけ）
+  nonnn2:LAMBDA:kp    脅威の特徴量を外した軽い線形（駒数＋KP）
   nonnn2:LAMBDA       同じ評価で、探索に枝刈り（null move / LMR / futility）と評価値の使い回しを足した版
   material            やねうら王 Material 版
   nnue                やねうら王 NNUE 版（水匠5）
@@ -35,7 +36,9 @@ class Engine:
         if spec.startswith("nonnn"):
             lam = spec.split(":")[1] if ":" in spec else "0.5"
             cmd = [os.path.join(HERE, "build/" + spec.split(":")[0])]  # nonnn / nonnn2（改良版）
-            opts = {"EvalFile": os.path.join(HERE, "../data/engine/weights_mkpt.bin"), "Lambda": lam, "UseLinear": "true" if float(lam) != 0 else "false"}
+            # nonnnX:LAM[:kp] … kp を付けると脅威なしの軽い評価（weights_mkp.bin, UseThreat false）
+            light = spec.endswith(":kp")
+            opts = {"EvalFile": os.path.join(HERE, "../data/engine/weights_mkp.bin" if light else "../data/engine/weights_mkpt.bin"), "Lambda": lam, "UseLinear": "true" if float(lam) != 0 else "false", "UseThreat": "false" if light else "true"}
             cwd = HERE
         elif spec == "material":
             cmd = [os.path.join(ROOT, "engines/yaneuraou/YaneuraOu-Material-ARM64")]
