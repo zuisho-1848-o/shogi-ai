@@ -4,3 +4,5 @@
 {"a": "nonnn2:0.5", "b": "nonnn:0.5", "a_ms": 200, "b_ms": 200, "games": 60, "win": 39, "loss": 20, "draw": 1, "score_rate_a": 0.6583, "ends": {"詰み": 59, "千日手": 1}, "mean_depth_a": 4.6, "mean_depth_b": 3.4, "sec": 913}
 {"a": "nonnn2:0.5", "b": "nonnn2:0", "a_ms": 200, "b_ms": 200, "games": 60, "win": 16, "loss": 42, "draw": 2, "score_rate_a": 0.2833, "ends": {"詰み": 58, "千日手": 2}, "mean_depth_a": 4.3, "mean_depth_b": 6.4, "sec": 860}
 {"a": "nonnn2:0.5", "b": "material", "a_ms": 200, "b_ms": 200, "games": 60, "win": 0, "loss": 59, "draw": 1, "score_rate_a": 0.0083, "ends": {"詰み": 59, "千日手": 1}, "mean_depth_a": 4.2, "mean_depth_b": 13.5, "sec": 694}
+{"a": "nonnn2:0.5:kp", "b": "nonnn2:0", "a_ms": 200, "b_ms": 200, "games": 60, "win": 29, "loss": 31, "draw": 0, "score_rate_a": 0.4833, "ends": {"詰み": 59, "判定": 1}, "mean_depth_a": 5.2, "mean_depth_b": 6.2, "sec": 1252}
+{"a": "nonnn2:0.5:kp", "b": "material", "a_ms": 200, "b_ms": 200, "games": 60, "win": 0, "loss": 60, "draw": 0, "score_rate_a": 0.0, "ends": {"詰み": 60}, "mean_depth_a": 5.4, "mean_depth_b": 13.9, "sec": 728}
