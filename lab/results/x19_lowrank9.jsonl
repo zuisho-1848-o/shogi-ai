@@ -6,3 +6,7 @@
 {"match": "固定の駒の価値+0.5×低ランクr=8（見慣れない局面を学習に追加）", "vs": "固定の駒の価値だけ", "depth": 2, "win": 36, "loss": 24, "draw": 0, "score_rate": 0.6}
 {"rank": 8, "with_imb": true, "extra": "searchpos.jsonl", "params": 25463, "corr": 0.6031, "corr_offdist": 0.5837, "mse": 0.1041, "sec": 25}
 {"match": "固定の駒の価値+0.5×低ランクr=8（見慣れない局面を学習に追加）（追加: searchpos.jsonl）", "vs": "固定の駒の価値だけ", "depth": 2, "win": 31, "loss": 29, "draw": 0, "score_rate": 0.5167}
+{"rank": 0, "residual": true, "with_imb": true, "extra": "searchpos.jsonl", "params": 6591, "corr": 0.6516, "corr_offdist": 0.4568, "mse": 0.1379, "sec": 5}
+{"rank": 8, "residual": true, "with_imb": true, "extra": "searchpos.jsonl", "params": 25463, "corr": 0.7105, "corr_offdist": 0.5059, "mse": 0.1193, "sec": 23}
+{"match": "固定の駒の価値+1.0×線形（駒×位置＋脅威）（残差学習）（見慣れない局面を学習に追加）（追加: searchpos.jsonl）", "vs": "固定の駒の価値だけ", "depth": 2, "win": 17, "loss": 43, "draw": 0, "score_rate": 0.2833}
+{"match": "固定の駒の価値+1.0×低ランクr=8（残差学習）（見慣れない局面を学習に追加）（追加: searchpos.jsonl）", "vs": "固定の駒の価値だけ", "depth": 2, "win": 7, "loss": 53, "draw": 0, "score_rate": 0.1167}
