@@ -1,0 +1,3 @@
+{"a": "nonnn:0.5", "b": "nonnn:0", "a_ms": 200, "b_ms": 200, "games": 60, "win": 25, "loss": 35, "draw": 0, "score_rate_a": 0.4167, "ends": {"詰み": 58, "判定": 2}, "mean_depth_a": 3.2, "mean_depth_b": 4.5, "sec": 1142}
+{"a": "nonnn:0.5", "b": "material", "a_ms": 200, "b_ms": 200, "games": 60, "win": 1, "loss": 59, "draw": 0, "score_rate_a": 0.0167, "ends": {"詰み": 60}, "mean_depth_a": 3.4, "mean_depth_b": 14.0, "sec": 869}
+{"a": "nonnn:0", "b": "material", "a_ms": 200, "b_ms": 200, "games": 60, "win": 0, "loss": 60, "draw": 0, "score_rate_a": 0.0, "ends": {"詰み": 60}, "mean_depth_a": 4.7, "mean_depth_b": 14.2, "sec": 681}
