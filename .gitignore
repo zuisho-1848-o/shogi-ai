@@ -25,3 +25,4 @@ lab/engine/third_party/
 lab/engine/build/
 lab/lean/.lake/
 lab/lean/Dobutsu/Data.lean
+lab/lean/Kyoto/Data.lean

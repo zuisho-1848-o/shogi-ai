@@ -18,15 +18,20 @@ def main():
     import sys
 
     raw = open(sys.argv[1] if len(sys.argv) > 1 else SRC, "rb").read()
+    global OUT
+    ns = "Dobutsu"
+    if len(sys.argv) > 2:  # 例: cert_to_lean.py cert.bin Kyoto → ../lean/Kyoto/Data.lean
+        ns = sys.argv[2]
+        OUT = os.path.join(HERE, f"../lean/{ns}/Data.lean")
     b64 = base64.b64encode(raw).decode()
     chunks = [b64[i : i + CHUNK] for i in range(0, len(b64), CHUNK)]
     with open(OUT, "w") as f:
-        f.write("-- 自動生成（lab/dobutsu/cert_to_lean.py）。どうぶつしょうぎ「後手必勝」の証明書（base64）\n")
-        f.write("namespace Dobutsu.Data\n\n")
+        f.write(f"-- 自動生成（lab/dobutsu/cert_to_lean.py）。{ns} の証明書（base64）\n")
+        f.write(f"namespace {ns}.Data\n\n")
         for i, c in enumerate(chunks):
             f.write(f'def chunk{i} : String := "{c}"\n')
         f.write("\ndef all : String := String.join [" + ", ".join(f"chunk{i}" for i in range(len(chunks))) + "]\n")
-        f.write("\nend Dobutsu.Data\n")
+        f.write(f"\nend {ns}.Data\n")
     print(f"{len(raw):,} bytes -> {len(b64):,} chars in {len(chunks)} chunks -> {OUT}")
 
 

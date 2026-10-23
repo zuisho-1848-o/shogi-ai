@@ -3,3 +3,6 @@ defaultTargets = ["Dobutsu"]
 
 [[lean_lib]]
 name = "Dobutsu"
+
+[[lean_lib]]
+name = "Kyoto"
