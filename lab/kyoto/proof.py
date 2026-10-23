@@ -75,6 +75,7 @@ def main():
     ap.add_argument("--state", default=os.path.join(HERE, "../data/kyoto/proof_state.pkl"))
     ap.add_argument("--dfs", action="store_true", help="深さ優先（詰みまで早くたどり着き、部分ごとに閉じる）")
     ap.add_argument("--save-sec", type=int, default=600)
+    ap.add_argument("--root-moves", default="", help="根を初期局面からこの手順（カンマ区切り）を指した局面にする。例: e1e2+")
     a = ap.parse_args()
     os.makedirs(os.path.dirname(a.state), exist_ok=True)
     if os.path.exists(a.state):
@@ -83,14 +84,34 @@ def main():
         root = sf.start_fen(V)
         st = {"root": key(root), "fen": {key(root): root}, "win": {}, "lose": {}, "queue": collections.deque([key(root)]), "fail": {}, "decisions": 0}
     st["dfs"] = a.dfs
+    if a.root_moves:
+        # 根を「初期局面から指定の手を指した局面」に替える。既に展開した局面（win/lose）はそのまま使い回す
+        nf = sf.get_fen(V, sf.start_fen(V), a.root_moves.split(","))
+        nk = key(nf)
+        st["fen"][nk] = nf
+        st["root"] = nk
+        st["queue"] = collections.deque([nk])
+        print(f"root -> {nf}", flush=True)
+    seen = set()
     eng = Engine()
     t0 = time.time()
     last_save = t0
     fen = st["fen"]
+    st["dfs"] = a.dfs
     while st["queue"] and time.time() - t0 < a.hours * 3600:
         k = st["queue"].pop() if st.get("dfs") else st["queue"].popleft()
+        if k in seen:
+            continue
+        seen.add(k)
         f = fen[k]
         side = f.split()[1]
+        # 既に展開済みの局面は、子のうちこの回でまだ見ていないものだけを積む（使い回しの局面の下も漏れなくたどる）
+        done_kids = st["win"].get(k) if side == "w" else st["lose"].get(k)
+        if done_kids is not None:
+            for c in ([done_kids] if side == "w" else done_kids):
+                if c not in seen:
+                    st["queue"].append(c)
+            continue
         moves = sf.legal_moves(V, f, [])
         if side == "w":  # 先手の手番（Fairy-Stockfish では先手が w）
             if k in st["win"]:
@@ -107,6 +128,7 @@ def main():
             st["win"][k] = nk
             if nk not in fen:
                 fen[nk] = nf
+            if nk not in seen:
                 st["queue"].append(nk)
         else:  # 後手の手番: 全ての応手
             if k in st["lose"]:
@@ -118,6 +140,7 @@ def main():
                 kids.append(nk)
                 if nk not in fen:
                     fen[nk] = nf
+                if nk not in seen:
                     st["queue"].append(nk)
             st["lose"][k] = kids  # 合法手がなければ空 = 後手は詰み（先手の勝ち）
         if time.time() - last_save > a.save_sec:

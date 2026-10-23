@@ -1,0 +1,12 @@
+{
+ "positions": 6896232,
+ "proven": 6865759,
+ "proven_sente": 3599059,
+ "proven_gote": 3266700,
+ "root_proven": false,
+ "first_move_position": "p+nks+l/5/5/1L3/1SK+NP[] b - - 1 1",
+ "replies": 11,
+ "replies_proven": 0,
+ "unexpanded": 189617,
+ "fail": 134
+}
